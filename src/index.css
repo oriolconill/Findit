@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@layer base {
+  html,
+  body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: 'Plus Jakarta Sans', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+}
+
+@keyframes scanMove {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(138px);
+  }
+}
+
+@keyframes radarPulse {
+  0% {
+    transform: scale(0.35);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(1.08);
+    opacity: 0;
+  }
+}
+
+.animate-scan-laser {
+  animation: scanMove 2.1s infinite ease-in-out;
+}
+
+.animate-radar-pulse {
+  animation: radarPulse 2s infinite ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-scan-laser,
+  .animate-radar-pulse {
+    animation: none;
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "FINDIT",
+  "description": "Troba productes dins d'establiments amb mapes 2D interactius, rutes optimitzades i gestió de llistes i devolucions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

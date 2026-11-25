@@ -1,0 +1,2876 @@
+Aquí tens l'aplicació completa FINDIT implementada en un únic fitxer
+auto-contingut (findit.html), amb totes les funcionalitats, pantalles, catàlegs,
+mapes 2D interactius, algorisme de rutes sense travessar obstacles, cerca
+intel·ligent, llistes amb optimització automàtica i flux continu, i sistema de
+devolucions que especifica el prompt.
+
+Per provar-la immediatament, copia el codi següent, desa'l com a findit.html i
+obre'l amb qualsevol navegador (escriptori o mòbil):
+
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>FINDIT — Troba productes dins d'establiments</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --blue-primary: #246BCE;
+      --blue-dark: #174A91;
+      --blue-light: #EAF3FF;
+      --blue-pale: #F5F9FF;
+      --white: #FFFFFF;
+      --gray-light: #F1F3F6;
+      --text-secondary: #737B87;
+      --text-primary: #202A36;
+      --border-soft: #E3E8F0;
+      --success: #16A34A;
+      --success-bg: #DCFCE7;
+      --warning: #D97706;
+      --warning-bg: #FEF3C7;
+      --danger: #DC2626;
+      --danger-bg: #FEE2E2;
+      --shadow-sm: 0 2px 8px rgba(23, 74, 145, 0.06);
+      --shadow-md: 0 6px 20px rgba(23, 74, 145, 0.10);
+      --radius-lg: 18px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #E9EFF7;
+      color: var(--text-primary);
+      height: 100%;
+    }
+
+    /* Mobile-first shell */
+    .app-viewport {
+      max-width: 440px;
+      margin: 0 auto;
+      height: 100vh;
+      height: 100dvh;
+      background: var(--blue-pale);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-shadow: 0 0 40px rgba(23, 74, 145, 0.14);
+      overflow: hidden;
+    }
+
+    /* Top context bar when inside a store or subview */
+    .top-bar {
+      background: var(--white);
+      border-bottom: 1px solid var(--border-soft);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 20;
+      flex-shrink: 0;
+    }
+
+    .btn-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      border: 1px solid var(--border-soft);
+      background: var(--white);
+      color: var(--text-primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: transform 0.15s, background 0.15s;
+    }
+    .btn-icon:active { transform: scale(0.95); background: var(--gray-light); }
+
+    .top-title-wrap { flex: 1; min-width: 0; }
+    .top-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .top-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .store-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--blue-light);
+      color: var(--blue-dark);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* Scrollable Main Area */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 16px 96px 16px;
+      scroll-behavior: smooth;
+    }
+    .main-content::-webkit-scrollbar { width: 4px; }
+    .main-content::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+
+    /* Fixed Bottom Nav */
+    .bottom-nav {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 72px;
+      background: var(--white);
+      border-top: 1px solid var(--border-soft);
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      align-items: center;
+      padding: 4px 4px env(safe-area-inset-bottom, 6px) 4px;
+      z-index: 30;
+      box-shadow: 0 -4px 16px rgba(23, 74, 145, 0.06);
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      background: none;
+      border: none;
+      padding: 6px 2px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      position: relative;
+      transition: color 0.15s;
+    }
+    .nav-item.active { color: var(--blue-primary); }
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      top: -4px;
+      width: 28px;
+      height: 3px;
+      background: var(--blue-primary);
+      border-radius: 0 0 4px 4px;
+    }
+    .nav-badge {
+      position: absolute;
+      top: 2px;
+      right: 14px;
+      background: var(--danger);
+      color: var(--white);
+      font-size: 10px;
+      font-weight: 700;
+      min-width: 17px;
+      height: 17px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+    }
+
+    /* Typography & Cards */
+    h1, h2, h3, p { margin: 0; }
+    .hero-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, var(--blue-primary), var(--blue-dark));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--white);
+      box-shadow: 0 4px 12px rgba(36, 107, 206, 0.30);
+    }
+    .brand-name {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--blue-dark);
+    }
+    .hero-title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      line-height: 1.2;
+      margin-bottom: 6px;
+    }
+    .hero-sub {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(227, 232, 240, 0.8);
+    }
+
+    .section-label {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+      margin: 22px 0 10px 0;
+    }
+
+    /* Home 3 Grouped Options */
+    .start-options-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .option-card {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border: 1.5px solid var(--border-soft);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      text-align: left;
+      width: 100%;
+      transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+    .option-card.primary-opt {
+      background: linear-gradient(135deg, var(--blue-primary), var(--blue-dark));
+      border-color: transparent;
+      color: var(--white);
+      box-shadow: var(--shadow-md);
+    }
+    .option-card:active { transform: scale(0.985); }
+    .option-icon-box {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: var(--blue-light);
+      color: var(--blue-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .primary-opt .option-icon-box {
+      background: rgba(255, 255, 255, 0.18);
+      color: var(--white);
+    }
+    .option-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .option-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .primary-opt .option-desc { color: rgba(255,255,255,0.85); }
+
+    /* Recent / Store Cards */
+    .store-card {
+      background: var(--white);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid var(--border-soft);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+      margin-bottom: 10px;
+      transition: transform 0.15s;
+    }
+    .store-card:active { transform: scale(0.985); }
+    .store-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+      color: var(--white);
+      flex-shrink: 0;
+    }
+
+    /* Search Input */
+    .search-box {
+      position: relative;
+      margin-bottom: 14px;
+    }
+    .search-input {
+      width: 100%;
+      height: 50px;
+      border-radius: 14px;
+      border: 1.5px solid var(--border-soft);
+      background: var(--white);
+      padding: 0 42px 0 44px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-input:focus { border-color: var(--blue-primary); }
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-secondary);
+      pointer-events: none;
+    }
+    .search-clear {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: var(--gray-light);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      min-height: 48px;
+      padding: 12px 18px;
+      border-radius: 14px;
+      border: none;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.12s, opacity 0.15s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: var(--blue-primary);
+      color: var(--white);
+      box-shadow: 0 4px 14px rgba(36, 107, 206, 0.28);
+    }
+    .btn-dark { background: var(--blue-dark); color: var(--white); }
+    .btn-light { background: var(--blue-light); color: var(--blue-dark); }
+    .btn-outline {
+      background: var(--white);
+      color: var(--text-primary);
+      border: 1.5px solid var(--border-soft);
+    }
+    .btn-success {
+      background: var(--success);
+      color: var(--white);
+      box-shadow: 0 4px 14px rgba(22, 163, 74, 0.28);
+    }
+    .btn-danger-outline {
+      background: var(--white);
+      color: var(--danger);
+      border: 1.5px solid #FECACA;
+    }
+    .btn-sm {
+      min-height: 38px;
+      padding: 8px 12px;
+      font-size: 13px;
+      border-radius: 10px;
+      width: auto;
+    }
+
+    .btn-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    /* Category Pills & Product Cards */
+    .cat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .cat-tile {
+      background: var(--white);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      border: 1px solid var(--border-soft);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      text-align: left;
+      box-shadow: var(--shadow-sm);
+    }
+    .cat-dot {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .product-row {
+      background: var(--white);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      border: 1px solid var(--border-soft);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+    }
+    .product-thumb {
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .product-info { flex: 1; min-width: 0; }
+    .product-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+    .product-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge-avail { background: var(--success-bg); color: var(--success); }
+    .badge-low { background: var(--warning-bg); color: var(--warning); }
+    .badge-price { background: var(--blue-light); color: var(--blue-dark); }
+
+    /* Location Highlight Box */
+    .location-box {
+      background: linear-gradient(135deg, #EAF3FF, #F5F9FF);
+      border: 1.5px solid #BFDBFE;
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin: 14px 0;
+    }
+    .location-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--blue-primary);
+      margin-bottom: 4px;
+    }
+    .location-value {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--blue-dark);
+      line-height: 1.4;
+    }
+
+    /* Variant chips */
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .chip {
+      padding: 7px 12px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border-soft);
+      background: var(--white);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .chip.selected {
+      border-color: var(--blue-primary);
+      background: var(--blue-light);
+      color: var(--blue-dark);
+    }
+
+    /* Progress bar */
+    .progress-track {
+      width: 100%;
+      height: 9px;
+      background: var(--gray-light);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--blue-primary), #38BDF8);
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+
+    /* Directions Steps */
+    .step-item {
+      display: flex;
+      gap: 12px;
+      padding: 14px;
+      background: var(--white);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-soft);
+      margin-bottom: 10px;
+      align-items: flex-start;
+    }
+    .step-num {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--blue-primary);
+      color: var(--white);
+      font-weight: 800;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* Map Container */
+    .map-wrapper {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-soft);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    .map-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-soft);
+      background: var(--blue-pale);
+    }
+    .map-viewport {
+      width: 100%;
+      height: 340px;
+      overflow: auto;
+      background: #F8FAFC;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .map-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--white);
+      border-top: 1px solid var(--border-soft);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+    .legend-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+    /* QR & GPS Simulators */
+    .sim-frame {
+      background: #0F172A;
+      border-radius: var(--radius-lg);
+      padding: 24px 16px;
+      color: var(--white);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .qr-box {
+      width: 180px;
+      height: 180px;
+      margin: 14px auto;
+      border: 3px solid rgba(255,255,255,0.25);
+      border-radius: 18px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.04);
+    }
+    .qr-laser {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      height: 3px;
+      background: #38BDF8;
+      box-shadow: 0 0 12px #38BDF8;
+      animation: scanMove 2s infinite ease-in-out;
+    }
+    @keyframes scanMove {
+      0%, 100% { top: 16px; }
+      50% { top: 160px; }
+    }
+
+    .radar-circle {
+      width: 170px;
+      height: 170px;
+      border-radius: 50%;
+      margin: 14px auto;
+      background: radial-gradient(circle, rgba(36,107,206,0.35) 0%, rgba(36,107,206,0.06) 70%);
+      border: 2px solid rgba(56,189,248,0.4);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .radar-pulse {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid #38BDF8;
+      animation: radarPulse 2s infinite ease-out;
+    }
+    @keyframes radarPulse {
+      0% { transform: scale(0.35); opacity: 1; }
+      100% { transform: scale(1.1); opacity: 0; }
+    }
+
+    /* Sticky Action Footer for Map / Directions */
+    .floating-cta {
+      margin-top: 14px;
+      position: sticky;
+      bottom: 4px;
+      z-index: 10;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.52);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 50;
+    }
+    .modal-box {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: var(--shadow-md);
+    }
+
+    .fade-in { animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 28px 16px;
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      border: 1px dashed #CBD5E1;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-viewport" id="app"></div>
+
+  <script>
+    /* =========================================================================
+       1. DEFINICIÓ D'ESTABLIMENTS, CATEGORIES I MAPES 2D (VISTA SUPERIOR)
+       ========================================================================= */
+    const STORES = {
+      mercadona: {
+        id: 'mercadona',
+        name: 'Mercadona',
+        short: 'M',
+        color: '#0D8A4E',
+        desc: 'Supermercat · Alimentació, llar i productes frescos',
+        entrance: { x: 2, y: 14, label: 'Entrada Principal' },
+        categories: [
+          { name: 'Làctics i refrigerats', color: '#0EA5E9', bg: '#E0F2FE', icon: '🥛' },
+          { name: 'Conserves i llegums', color: '#D97706', bg: '#FEF3C7', icon: '🥫' },
+          { name: 'Cereals i esmorzar', color: '#EA580C', bg: '#FFEDD5', icon: '🥣' },
+          { name: 'Fruita', color: '#DC2626', bg: '#FEE2E2', icon: '🍎' },
+          { name: 'Verdura i hortalisses', color: '#16A34A', bg: '#DCFCE7', icon: '🥬' },
+          { name: 'Begudes', color: '#0284C7', bg: '#E0F2FE', icon: '🥤' },
+          { name: 'Carn i peix', color: '#BE123C', bg: '#FFE4E6', icon: '🥩' },
+          { name: 'Congelats', color: '#4F46E5', bg: '#E0E7FF', icon: '❄️' },
+          { name: 'Neteja i llar', color: '#7C3AED', bg: '#EDE9FE', icon: '🧴' }
+        ],
+        map: {
+          cols: 20, rows: 16,
+          zones: [
+            { id: 'FV', label: 'Fruita i Verdura', x: 1, y: 1, w: 5, h: 2, color: '#BBF7D0', border: '#16A34A', aisle: 'Zona Fruita i Verdura', approach: { x: 3, y: 3 }, pin: { x: 3.5, y: 2.2 } },
+            { id: 'CP', label: 'Carn i Peix', x: 7, y: 1, w: 6, h: 2, color: '#FECDD3', border: '#E11D48', aisle: 'Taulell Carn i Peix', approach: { x: 10, y: 3 }, pin: { x: 10, y: 2 } },
+            { id: 'CG', label: 'Congelats', x: 14, y: 1, w: 5, h: 2, color: '#C7D2FE', border: '#4F46E5', aisle: 'Zona Congelats', approach: { x: 16, y: 3 }, pin: { x: 16.5, y: 2 } },
+
+            { id: 'C1', label: 'C1 · Conserves', x: 2, y: 5, w: 2, h: 3, color: '#FDE68A', border: '#D97706', aisle: 'Passadís 1', approach: { x: 4, y: 6 }, pin: { x: 3.5, y: 6.5 } },
+            { id: 'C2', label: 'C2 · Llegums', x: 2, y: 8, w: 2, h: 3, color: '#FDE68A', border: '#D97706', aisle: 'Passadís 1', approach: { x: 4, y: 9 }, pin: { x: 3.5, y: 9.5 } },
+
+            { id: 'CE1', label: 'CE1 · Cereals', x: 6, y: 5, w: 2, h: 3, color: '#FED7AA', border: '#EA580C', aisle: 'Passadís 2', approach: { x: 8, y: 6 }, pin: { x: 7.5, y: 6.5 } },
+            { id: 'CE2', label: 'CE2 · Esmorzar', x: 6, y: 8, w: 2, h: 3, color: '#FED7AA', border: '#EA580C', aisle: 'Passadís 2', approach: { x: 8, y: 9 }, pin: { x: 7.5, y: 9.5 } },
+
+            { id: 'L1', label: 'L1 · Làctics', x: 10, y: 5, w: 2, h: 3, color: '#BAE6FD', border: '#0284C7', aisle: 'Passadís 3', approach: { x: 9, y: 6 }, pin: { x: 10.5, y: 6.5 } },
+            { id: 'L2', label: 'L2 · Formatges', x: 10, y: 8, w: 2, h: 3, color: '#BAE6FD', border: '#0284C7', aisle: 'Passadís 3', approach: { x: 9, y: 9 }, pin: { x: 10.5, y: 9.5 } },
+
+            { id: 'B1', label: 'B1 · Begudes', x: 14, y: 5, w: 2, h: 3, color: '#A5F3FC', border: '#0891B2', aisle: 'Passadís 4', approach: { x: 13, y: 6 }, pin: { x: 14.5, y: 6.5 } },
+            { id: 'N1', label: 'N1 · Neteja', x: 14, y: 8, w: 2, h: 3, color: '#DDD6FE', border: '#7C3AED', aisle: 'Passadís 4', approach: { x: 13, y: 9 }, pin: { x: 14.5, y: 9.5 } },
+            { id: 'N2', label: 'N2 · Llar', x: 17, y: 5, w: 2, h: 6, color: '#DDD6FE', border: '#7C3AED', aisle: 'Passadís 5', approach: { x: 16, y: 8 }, pin: { x: 17.5, y: 8 } },
+
+            { id: 'CAIXES', label: 'Caixes', x: 7, y: 13, w: 9, h: 2, color: '#E2E8F0', border: '#64748B', aisle: 'Sortida', approach: { x: 6, y: 13 }, pin: { x: 11, y: 14 } }
+          ]
+        }
+      },
+
+      zara: {
+        id: 'zara',
+        name: 'Zara',
+        short: 'Z',
+        color: '#1E293B',
+        desc: 'Moda i complements · Roba, calçat i accessoris',
+        entrance: { x: 10, y: 14, label: 'Entrada Principal' },
+        categories: [
+          { name: 'Pantalons', color: '#475569', bg: '#F1F5F9', icon: '👖' },
+          { name: 'Texans', color: '#1D4ED8', bg: '#DBEAFE', icon: '👖' },
+          { name: 'Samarretes', color: '#059669', bg: '#D1FAE5', icon: '👕' },
+          { name: 'Camises', color: '#0F766E', bg: '#CCFBF1', icon: '👔' },
+          { name: 'Polos i tops', color: '#DB2777', bg: '#FCE7F3', icon: '👚' },
+          { name: 'Dessuadores', color: '#7C3AED', bg: '#EDE9FE', icon: '🧥' },
+          { name: 'Jerseis', color: '#B45309', bg: '#FEF3C7', icon: '🧶' },
+          { name: 'Jaquetes', color: '#334155', bg: '#E2E8F0', icon: '🧥' },
+          { name: 'Abrics', color: '#9A3412', bg: '#FFEDD5', icon: '🧥' },
+          { name: 'Vestits', color: '#BE185D', bg: '#FCE7F3', icon: '👗' },
+          { name: 'Faldilles', color: '#E11D48', bg: '#FFE4E6', icon: '👗' },
+          { name: 'Calçat', color: '#854D0E', bg: '#FEF9C3', icon: '👟' },
+          { name: 'Bosses i motxilles', color: '#9333EA', bg: '#F3E8FF', icon: '👜' },
+          { name: 'Complements', color: '#0891B2', bg: '#CFFAFE', icon: '🕶️' }
+        ],
+        map: {
+          cols: 20, rows: 16,
+          zones: [
+            { id: 'Z-CAM', label: 'Penjadors Camises', x: 2, y: 2, w: 3, h: 3, color: '#CCFBF1', border: '#0F766E', aisle: 'Zona Nord-Oest', approach: { x: 5, y: 3 }, pin: { x: 3.5, y: 3.5 } },
+            { id: 'Z-SAM', label: 'Taula Samarretes', x: 7, y: 3, w: 3, h: 3, color: '#D1FAE5', border: '#059669', aisle: 'Zona Central Nord', approach: { x: 6, y: 4 }, pin: { x: 8.5, y: 4.5 } },
+            { id: 'Z-PAN', label: 'Expositor Pantalons', x: 11, y: 2, w: 4, h: 3, color: '#DBEAFE', border: '#1D4ED8', aisle: 'Zona Denim', approach: { x: 10, y: 3 }, pin: { x: 13, y: 3.5 } },
+            { id: 'Z-EMP', label: 'Emprovadors', x: 16, y: 2, w: 3, h: 6, color: '#F3E8FF', border: '#7E22CE', aisle: 'Zona Emprovadors', approach: { x: 15, y: 5 }, pin: { x: 17.5, y: 5 } },
+            { id: 'Z-ABR', label: 'Penjadors Abrics', x: 2, y: 7, w: 3, h: 3, color: '#FFEDD5', border: '#C2410C', aisle: 'Zona Oest', approach: { x: 5, y: 8 }, pin: { x: 3.5, y: 8.5 } },
+            { id: 'Z-VES', label: 'Taula Vestits', x: 7, y: 8, w: 3, h: 3, color: '#FCE7F3', border: '#BE185D', aisle: 'Zona Central Sud', approach: { x: 10, y: 9 }, pin: { x: 8.5, y: 9.5 } },
+            { id: 'Z-CAL', label: 'Zona de Calçat', x: 12, y: 8, w: 3, h: 3, color: '#FEF3C7', border: '#B45309', aisle: 'Zona Calçat', approach: { x: 11, y: 9 }, pin: { x: 13.5, y: 9.5 } },
+            { id: 'Z-COM', label: 'Complements i Bosses', x: 16, y: 10, w: 3, h: 3, color: '#CFFAFE', border: '#0891B2', aisle: 'Zona Complements', approach: { x: 15, y: 11 }, pin: { x: 17.5, y: 11.5 } },
+            { id: 'Z-CAIX', label: 'Caixes', x: 2, y: 12, w: 4, h: 2, color: '#E2E8F0', border: '#64748B', aisle: 'Sortida', approach: { x: 6, y: 13 }, pin: { x: 4, y: 13 } }
+          ]
+        }
+      },
+
+      biblioteca: {
+        id: 'biblioteca',
+        name: 'Biblioteca de Vilanova',
+        short: 'BV',
+        color: '#9333EA',
+        desc: 'Biblioteca municipal · Llibres, novel·la, còmic i assaig',
+        entrance: { x: 2, y: 14, label: 'Entrada Biblioteca' },
+        categories: [
+          { name: 'Novel·la', color: '#7C3AED', bg: '#EDE9FE', icon: '📖' },
+          { name: 'Novel·la negra i policíaca', color: '#334155', bg: '#E2E8F0', icon: '🕵️' },
+          { name: 'Infantil', color: '#F59E0B', bg: '#FEF3C7', icon: '🧸' },
+          { name: 'Fantasia', color: '#9333EA', bg: '#F3E8FF', icon: '🐉' },
+          { name: 'Aventura', color: '#059669', bg: '#D1FAE5', icon: '🧭' },
+          { name: 'Romàntica', color: '#E11D48', bg: '#FFE4E6', icon: '💐' },
+          { name: 'Història', color: '#B45309', bg: '#FFEDD5', icon: '🏛️' },
+          { name: 'Biografies', color: '#0284C7', bg: '#E0F2FE', icon: '✍️' },
+          { name: 'Ciència-ficció', color: '#4F46E5', bg: '#E0E7FF', icon: '🚀' },
+          { name: 'Còmics i manga', color: '#EA580C', bg: '#FFEDD5', icon: '💥' },
+          { name: 'Assaig', color: '#475569', bg: '#F1F5F9', icon: '🧠' }
+        ],
+        map: {
+          cols: 20, rows: 16,
+          zones: [
+            { id: 'BIB-NOV', label: 'Prestatgeries Novel·la', x: 2, y: 2, w: 6, h: 2, color: '#EDE9FE', border: '#7C3AED', aisle: 'Passadís A', approach: { x: 5, y: 4 }, pin: { x: 5, y: 3 } },
+            { id: 'BIB-NEG', label: 'Novel·la Negra', x: 10, y: 2, w: 6, h: 2, color: '#E2E8F0', border: '#475569', aisle: 'Passadís A', approach: { x: 13, y: 4 }, pin: { x: 13, y: 3 } },
+            { id: 'BIB-FAN', label: 'Fantasia i Ciència-Ficció', x: 2, y: 5, w: 6, h: 2, color: '#F3E8FF', border: '#9333EA', aisle: 'Passadís B', approach: { x: 5, y: 7 }, pin: { x: 5, y: 6 } },
+            { id: 'BIB-AVE', label: 'Aventura i Romàntica', x: 10, y: 5, w: 6, h: 2, color: '#D1FAE5', border: '#059669', aisle: 'Passadís B', approach: { x: 13, y: 7 }, pin: { x: 13, y: 6 } },
+            { id: 'BIB-HIS', label: 'Història, Bio i Assaig', x: 2, y: 8, w: 6, h: 2, color: '#FFEDD5', border: '#C2410C', aisle: 'Passadís C', approach: { x: 5, y: 10 }, pin: { x: 5, y: 9 } },
+            { id: 'BIB-COM', label: 'Còmics i Manga', x: 10, y: 8, w: 5, h: 2, color: '#FEE2E2', border: '#EA580C', aisle: 'Passadís C', approach: { x: 12, y: 10 }, pin: { x: 12.5, y: 9 } },
+            { id: 'BIB-INF', label: 'Secció Infantil', x: 14, y: 11, w: 5, h: 3, color: '#FEF3C7', border: '#D97706', aisle: 'Zona Infantil', approach: { x: 13, y: 12 }, pin: { x: 16.5, y: 12.5 } },
+            { id: 'BIB-TAU', label: 'Taulell Préstec', x: 5, y: 13, w: 5, h: 2, color: '#CBD5E1', border: '#475569', aisle: 'Recepció', approach: { x: 4, y: 13 }, pin: { x: 7.5, y: 14 } }
+          ]
+        }
+      },
+
+      decathlon: {
+        id: 'decathlon',
+        name: 'Decathlon',
+        short: 'D',
+        color: '#0082C3',
+        desc: 'Esports · Equipament, tèxtil i material esportiu',
+        entrance: { x: 10, y: 14, label: 'Zona J · Entrada' },
+        categories: [
+          { name: 'Running', color: '#EA580C', bg: '#FFEDD5', icon: '🏃' },
+          { name: 'Fitness i musculació', color: '#7C3AED', bg: '#EDE9FE', icon: '🏋️' },
+          { name: 'Ciclisme', color: '#059669', bg: '#D1FAE5', icon: '🚴' },
+          { name: 'Muntanya i senderisme', color: '#B45309', bg: '#FEF3C7', icon: '🥾' },
+          { name: 'Natació', color: '#0284C7', bg: '#E0F2FE', icon: '🏊' },
+          { name: 'Futbol i esports d\'equip', color: '#16A34A', bg: '#DCFCE7', icon: '⚽' },
+          { name: 'Esports de raqueta', color: '#D97706', bg: '#FEF9C3', icon: '🎾' },
+          { name: 'Roba i calçat esportiu', color: '#DC2626', bg: '#FEE2E2', icon: '👟' }
+        ],
+        map: {
+          cols: 20, rows: 16,
+          zones: [
+            { id: 'A1', label: 'Zona A · Running (A1-A2)', x: 2, y: 2, w: 4, h: 3, color: '#FFEDD5', border: '#EA580C', aisle: 'Zona A', approach: { x: 6, y: 3 }, pin: { x: 4, y: 3.5 } },
+            { id: 'B1', label: 'Zona B · Fitness (B1-B2)', x: 8, y: 2, w: 4, h: 3, color: '#EDE9FE', border: '#7C3AED', aisle: 'Zona B', approach: { x: 7, y: 3 }, pin: { x: 10, y: 3.5 } },
+            { id: 'C1', label: 'Zona C · Ciclisme (C1-C3)', x: 14, y: 2, w: 5, h: 3, color: '#D1FAE5', border: '#059669', aisle: 'Zona C', approach: { x: 13, y: 3 }, pin: { x: 16.5, y: 3.5 } },
+            { id: 'D1', label: 'Zona D · Muntanya (D1)', x: 2, y: 7, w: 4, h: 3, color: '#FEF3C7', border: '#B45309', aisle: 'Zona D', approach: { x: 6, y: 8 }, pin: { x: 4, y: 8.5 } },
+            { id: 'E1', label: 'Zona E · Natació (E1)', x: 8, y: 7, w: 4, h: 3, color: '#E0F2FE', border: '#0284C7', aisle: 'Zona E', approach: { x: 7, y: 8 }, pin: { x: 10, y: 8.5 } },
+            { id: 'F1', label: 'Zona F · Futbol (F1)', x: 14, y: 7, w: 4, h: 3, color: '#DCFCE7', border: '#16A34A', aisle: 'Zona F', approach: { x: 13, y: 8 }, pin: { x: 16, y: 8.5 } },
+            { id: 'G1', label: 'Zona G · Raqueta (G1)', x: 14, y: 11, w: 4, h: 3, color: '#FEF9C3', border: '#D97706', aisle: 'Zona G', approach: { x: 13, y: 12 }, pin: { x: 16, y: 12.5 } },
+            { id: 'H1', label: 'Zona H · Roba Esportiva', x: 8, y: 11, w: 4, h: 2, color: '#FEE2E2', border: '#DC2626', aisle: 'Zona H', approach: { x: 12, y: 11 }, pin: { x: 10, y: 12 } },
+            { id: 'I1', label: 'Zona I · Caixes i sortida', x: 2, y: 13, w: 5, h: 2, color: '#E2E8F0', border: '#64748B', aisle: 'Zona I', approach: { x: 7, y: 13 }, pin: { x: 4.5, y: 14 } }
+          ]
+        }
+      }
+    };
+
+    /* =========================================================================
+       2. CATÀLEGS COMPLETS PER ESTABLIMENT (DADES SEPARADES I COHERENTS)
+       ========================================================================= */
+    const CATALOGS = {
+      mercadona: [
+        // Làctics i refrigerats
+        { id: 'm-lle1', name: 'Llet sencera', brand: 'Hacendado', format: 'Brick 1 L', price: 0.99, category: 'Làctics i refrigerats', availability: 'En estoc', zoneId: 'L1', aisle: 'Passadís 3', section: 'Làctics', shelf: 'Prestatgeria L1', level: 'Prestatge 2', tags: ['llet', 'lactics', 'esmorzar', 'refrigerat'], icon: '🥛' },
+        { id: 'm-lle2', name: 'Llet semidesnatada', brand: 'Hacendado', format: 'Brick 1 L', price: 0.95, category: 'Làctics i refrigerats', availability: 'En estoc', zoneId: 'L1', aisle: 'Passadís 3', section: 'Làctics', shelf: 'Prestatgeria L1', level: 'Prestatge 3', tags: ['llet', 'lactics', 'esmorzar'], icon: '🥛' },
+        { id: 'm-lle3', name: 'Llet desnatada', brand: 'Hacendado', format: 'Brick 1 L', price: 0.95, category: 'Làctics i refrigerats', availability: 'En estoc', zoneId: 'L1', aisle: 'Passadís 3', section: 'Làctics', shelf: 'Prestatgeria L1', level: 'Prestatge 4', tags: ['llet', 'lactics', 'esmorzar'], icon: '🥛' },
+        { id: 'm-lle4', name: 'Llet sense lactosa', brand: 'Hacendado', format: 'Brick 1 L', price: 1.15, category: 'Làctics i refrigerats', availability: 'En estoc', zoneId: 'L1', aisle: 'Passadís 3', section: 'Làctics', shelf: 'Prestatgeria L1', level: 'Prestatge 1', tags: ['llet', 'sense lactosa', 'lactics'], icon: '🥛' },
+        { id: 'm-begc', name: 'Beguda de civada', brand: 'Hacendado', format: 'Brick 1 L', price: 1.25, category: 'Làctics i refrigerats', availability: 'En estoc', zoneId: 'L1', aisle: 'Passadís 3', section: 'Làctics i vegetals', shelf: 'Prestatgeria L1', level: 'Prestatge 5', tags: ['civada', 'beguda vegetal', 'esmorzar'], icon: '🌾' },
+        { id: 'm-begs', name: 'Beguda de soja', brand: 'Hacendado', format: 'Brick 1 L', price: 1.10, category: 'Làctics i refrigerats', availability: 'En estoc', zoneId: 'L1', aisle: 'Passadís 3', section: 'Làctics i vegetals', shelf: 'Prestatgeria L1', level: 'Prestatge 5', tags: ['soja', 'beguda vegetal'], icon: '🫘' },
+        { id: 'm-iog1', name: 'Iogurt natural', brand: 'Hacendado', format: 'Pack 4x125 g', price: 1.35, category: 'Làctics i refrigerats', availability: 'En estoc', zoneId: 'L1', aisle: 'Passadís 3', section: 'Làctics', shelf: 'Prestatgeria L1', level: 'Prestatge 2', tags: ['iogurt', 'lactic', 'refrigerat', 'esmorzar'], icon: '🍨' },
+        { id: 'm-iog2', name: 'Iogurt grec natural', brand: 'Hacendado', format: 'Pack 4x125 g', price: 1.65, category: 'Làctics i refrigerats', availability: 'En estoc', zoneId: 'L1', aisle: 'Passadís 3', section: 'Làctics', shelf: 'Prestatgeria L1', level: 'Prestatge 2', tags: ['iogurt', 'grec', 'lactic', 'refrigerat', 'esmorzar'], icon: '🍨' },
+        { id: 'm-iog3', name: 'Iogurt de sabors (maduixa i plàtan)', brand: 'Hacendado', format: 'Pack 8x125 g', price: 2.10, category: 'Làctics i refrigerats', availability: 'En estoc', zoneId: 'L1', aisle: 'Passadís 3', section: 'Làctics', shelf: 'Prestatgeria L1', level: 'Prestatge 3', tags: ['iogurt', 'sabors', 'maduixa'], icon: '🍓' },
+        { id: 'm-for1', name: 'Formatge fresc tipus Burgos', brand: 'Hacendado', format: 'Pack 3x75 g', price: 1.85, category: 'Làctics i refrigerats', availability: 'En estoc', zoneId: 'L2', aisle: 'Passadís 3', section: 'Formatges', shelf: 'Prestatgeria L2', level: 'Prestatge 2', tags: ['formatge', 'fresc', 'lactics'], icon: '🧀' },
+        { id: 'm-for2', name: 'Mozzarella fresca', brand: 'Hacendado', format: 'Bossa 125 g', price: 1.20, category: 'Làctics i refrigerats', availability: 'En estoc', zoneId: 'L2', aisle: 'Passadís 3', section: 'Formatges', shelf: 'Prestatgeria L2', level: 'Prestatge 3', tags: ['mozzarella', 'formatge'], icon: '🧀' },
+        { id: 'm-for3', name: 'Formatge ratllat quatre formatges', brand: 'Hacendado', format: 'Bossa 200 g', price: 1.95, category: 'Làctics i refrigerats', availability: 'En estoc', zoneId: 'L2', aisle: 'Passadís 3', section: 'Formatges', shelf: 'Prestatgeria L2', level: 'Prestatge 4', tags: ['formatge', 'ratllat'], icon: '🧀' },
+        { id: 'm-man1', name: 'Mantega tradicional i nata per cuinar', brand: 'Hacendado', format: 'Terrina 250 g', price: 2.30, category: 'Làctics i refrigerats', availability: 'En estoc', zoneId: 'L2', aisle: 'Passadís 3', section: 'Làctics', shelf: 'Prestatgeria L2', level: 'Prestatge 1', tags: ['mantega', 'nata', 'lactics'], icon: '🧈' },
+
+        // Conserves i llegums
+        { id: 'm-ton', name: 'Tonyina clara en oli d\'oliva', brand: 'Hacendado', format: 'Pack 6x80 g', price: 4.50, category: 'Conserves i llegums', availability: 'En estoc', zoneId: 'C1', aisle: 'Passadís 1', section: 'Conserves', shelf: 'Prestatgeria C1', level: 'Prestatge 2', tags: ['tonyina', 'peix', 'llauna'], icon: '🐟' },
+        { id: 'm-tomf', name: 'Tomàquet fregit estil casolà', brand: 'Hacendado', format: 'Pot vidre 560 g', price: 1.45, category: 'Conserves i llegums', availability: 'En estoc', zoneId: 'C1', aisle: 'Passadís 1', section: 'Conserves', shelf: 'Prestatgeria C1', level: 'Prestatge 3', tags: ['tomaquet', 'fregit', 'salsa'], icon: '🍅' },
+        { id: 'm-blat', name: 'Blat de moro dolç', brand: 'Hacendado', format: 'Pack 3x140 g', price: 1.80, category: 'Conserves i llegums', availability: 'En estoc', zoneId: 'C1', aisle: 'Passadís 1', section: 'Conserves', shelf: 'Prestatgeria C1', level: 'Prestatge 4', tags: ['blat de moro', 'amanida'], icon: '🌽' },
+        { id: 'm-cigr', name: 'Cigrons, llenties i mongetes cuits', brand: 'Hacendado', format: 'Pot 570 g', price: 1.05, category: 'Conserves i llegums', availability: 'En estoc', zoneId: 'C2', aisle: 'Passadís 1', section: 'Llegums', shelf: 'Prestatgeria C2', level: 'Prestatge 2', tags: ['cigrons', 'llenties', 'mongetes', 'llegums'], icon: '🫘' },
+        { id: 'm-oliv', name: 'Olives farcides d\'anxova', brand: 'Hacendado', format: 'Pot 350 g', price: 1.65, category: 'Conserves i llegums', availability: 'En estoc', zoneId: 'C2', aisle: 'Passadís 1', section: 'Conserves', shelf: 'Prestatgeria C2', level: 'Prestatge 3', tags: ['olives', 'aperitiu'], icon: '🫒' },
+        { id: 'm-espa', name: 'Espàrrecs blancs en conserva', brand: 'Hacendado', format: 'Pot 330 g', price: 2.95, category: 'Conserves i llegums', availability: 'En estoc', zoneId: 'C2', aisle: 'Passadís 1', section: 'Conserves', shelf: 'Prestatgeria C2', level: 'Prestatge 4', tags: ['esparrecs', 'conserva'], icon: '🥬' },
+
+        // Cereals i esmorzar
+        { id: 'm-arr', name: 'Arròs rodó extra', brand: 'Hacendado', format: 'Paquet 1 kg', price: 1.35, category: 'Cereals i esmorzar', availability: 'En estoc', zoneId: 'CE1', aisle: 'Passadís 2', section: 'Cereals i pasta', shelf: 'Prestatgeria CE1', level: 'Prestatge 1', tags: ['arros', 'cereals'], icon: '🍚' },
+        { id: 'm-pas', name: 'Pasta macarrons i espaguetis', brand: 'Hacendado', format: 'Paquet 500 g', price: 0.90, category: 'Cereals i esmorzar', availability: 'En estoc', zoneId: 'CE1', aisle: 'Passadís 2', section: 'Cereals i pasta', shelf: 'Prestatgeria CE1', level: 'Prestatge 2', tags: ['pasta', 'macarrons', 'espaguetis'], icon: '🍝' },
+        { id: 'm-civ', name: 'Flocs de civada integral', brand: 'Hacendado', format: 'Bossa 500 g', price: 1.15, category: 'Cereals i esmorzar', availability: 'En estoc', zoneId: 'CE1', aisle: 'Passadís 2', section: 'Esmorzar', shelf: 'Prestatgeria CE1', level: 'Prestatge 3', tags: ['civada', 'esmorzar', 'cereals'], icon: '🌾' },
+        { id: 'm-choco', name: 'Cereals de xocolata farcits', brand: 'Hacendado', format: 'Caixa 500 g', price: 2.15, category: 'Cereals i esmorzar', availability: 'En estoc', zoneId: 'CE2', aisle: 'Passadís 2', section: 'Esmorzar', shelf: 'Prestatgeria CE2', level: 'Prestatge 2', tags: ['cereals', 'xocolata', 'esmorzar'], icon: '🥣' },
+        { id: 'm-corn', name: 'Flocs de blat de moro (Corn Flakes)', brand: 'Hacendado', format: 'Caixa 500 g', price: 1.70, category: 'Cereals i esmorzar', availability: 'En estoc', zoneId: 'CE2', aisle: 'Passadís 2', section: 'Esmorzar', shelf: 'Prestatgeria CE2', level: 'Prestatge 3', tags: ['flocs', 'cereals', 'esmorzar'], icon: '🥣' },
+        { id: 'm-mues', name: 'Muesli i granola cruixent', brand: 'Hacendado', format: 'Bossa 400 g', price: 2.35, category: 'Cereals i esmorzar', availability: 'En estoc', zoneId: 'CE2', aisle: 'Passadís 2', section: 'Esmorzar', shelf: 'Prestatgeria CE2', level: 'Prestatge 3', tags: ['muesli', 'granola', 'cereals', 'esmorzar'], icon: '🥣' },
+        { id: 'm-gal', name: 'Galetes Maria daurades', brand: 'Hacendado', format: 'Paquet 800 g', price: 1.40, category: 'Cereals i esmorzar', availability: 'En estoc', zoneId: 'CE2', aisle: 'Passadís 2', section: 'Esmorzar', shelf: 'Prestatgeria CE2', level: 'Prestatge 1', tags: ['galetes', 'esmorzar'], icon: '🍪' },
+        { id: 'm-tor', name: 'Torrades integrals i melmelada de maduixa', brand: 'Hacendado', format: 'Pack 270 g', price: 1.60, category: 'Cereals i esmorzar', availability: 'En estoc', zoneId: 'CE2', aisle: 'Passadís 2', section: 'Esmorzar', shelf: 'Prestatgeria CE2', level: 'Prestatge 4', tags: ['torrades', 'melmelada', 'esmorzar'], icon: '🍞' },
+
+        // Fruita
+        { id: 'm-pom', name: 'Pomes Golden i plàtans de Canàries', brand: 'Mercadona Fresc', format: 'Malla 1,5 kg', price: 2.65, category: 'Fruita', availability: 'En estoc', zoneId: 'FV', aisle: 'Zona Fruita i Verdura', section: 'Fruita fresca', shelf: 'Expositor FV-1', level: 'Nivell superior', tags: ['pomes', 'platans', 'taronges', 'mandarines', 'fruita'], icon: '🍎' },
+        { id: 'm-mad', name: 'Peres, maduixes, raïm i kiwis', brand: 'Mercadona Fresc', format: 'Safata 500 g', price: 2.95, category: 'Fruita', availability: 'En estoc', zoneId: 'FV', aisle: 'Zona Fruita i Verdura', section: 'Fruita fresca', shelf: 'Expositor FV-2', level: 'Nivell central', tags: ['peres', 'maduixes', 'raim', 'kiwis', 'fruita'], icon: '🍓' },
+        { id: 'm-sin', name: 'Préssecs, síndria i meló', brand: 'Mercadona Fresc', format: 'Peça ~2,5 kg', price: 3.40, category: 'Fruita', availability: 'Estoc limitat', zoneId: 'FV', aisle: 'Zona Fruita i Verdura', section: 'Fruita de temporada', shelf: 'Expositor FV-3', level: 'Nivell inferior', tags: ['pressecs', 'sindria', 'melo', 'fruita'], icon: '🍉' },
+
+        // Verdura i hortalisses
+        { id: 'm-tom', name: 'Tomàquets de branca, enciams i pastanagues', brand: 'Horta Fresca', format: 'Malla 1 kg', price: 2.15, category: 'Verdura i hortalisses', availability: 'En estoc', zoneId: 'FV', aisle: 'Zona Fruita i Verdura', section: 'Hortalisses', shelf: 'Expositor FV-4', level: 'Nivell superior', tags: ['tomaquets', 'enciams', 'pastanagues', 'verdura'], icon: '🍅' },
+        { id: 'm-pat', name: 'Patates de muntanya i cebes dolces', brand: 'Horta Fresca', format: 'Sac 3 kg', price: 3.20, category: 'Verdura i hortalisses', availability: 'En estoc', zoneId: 'FV', aisle: 'Zona Fruita i Verdura', section: 'Hortalisses', shelf: 'Expositor FV-5', level: 'Nivell inferior', tags: ['patates', 'cebes', 'verdura'], icon: '🥔' },
+        { id: 'm-peb', name: 'Pebrots, carbassons i cogombres', brand: 'Horta Fresca', format: 'Pack 750 g', price: 1.95, category: 'Verdura i hortalisses', availability: 'En estoc', zoneId: 'FV', aisle: 'Zona Fruita i Verdura', section: 'Verdures', shelf: 'Expositor FV-6', level: 'Nivell central', tags: ['pebrots', 'carbassons', 'cogombres', 'verdura'], icon: '🫑' },
+        { id: 'm-bro', name: 'Bròquil fresc i verdures variades', brand: 'Horta Fresca', format: 'Peça 500 g', price: 1.45, category: 'Verdura i hortalisses', availability: 'En estoc', zoneId: 'FV', aisle: 'Zona Fruita i Verdura', section: 'Verdures', shelf: 'Expositor FV-6', level: 'Nivell superior', tags: ['broquil', 'verdura', 'hortalisses'], icon: '🥦' },
+
+        // Begudes
+        { id: 'm-aig', name: 'Aigua mineral natural i amb gas', brand: 'Font Natura', format: 'Pack 6x1,5 L', price: 2.10, category: 'Begudes', availability: 'En estoc', zoneId: 'B1', aisle: 'Passadís 4', section: 'Begudes', shelf: 'Prestatgeria B1', level: 'Prestatge 1', tags: ['aigua', 'gas', 'begudes'], icon: '💧' },
+        { id: 'm-suc', name: 'Suc de taronja 100% espremut', brand: 'Hacendado', format: 'Ampolla 1 L', price: 1.95, category: 'Begudes', availability: 'En estoc', zoneId: 'B1', aisle: 'Passadís 4', section: 'Begudes', shelf: 'Prestatgeria B1', level: 'Prestatge 2', tags: ['suc', 'taronja', 'begudes', 'esmorzar'], icon: '🧃' },
+        { id: 'm-ref', name: 'Refrescos de cola i llimona', brand: 'Hacendado', format: 'Pack 6x330 ml', price: 2.75, category: 'Begudes', availability: 'En estoc', zoneId: 'B1', aisle: 'Passadís 4', section: 'Begudes', shelf: 'Prestatgeria B1', level: 'Prestatge 3', tags: ['refrescos', 'cola', 'begudes'], icon: '🥤' },
+        { id: 'm-iso', name: 'Beguda isotònica sabor cítric', brand: 'IsoSport', format: 'Ampolla 1,5 L', price: 1.30, category: 'Begudes', availability: 'En estoc', zoneId: 'B1', aisle: 'Passadís 4', section: 'Begudes', shelf: 'Prestatgeria B1', level: 'Prestatge 4', tags: ['isotonica', 'esport', 'begudes'], icon: '⚡' },
+
+        // Carn i peix
+        { id: 'm-pol', name: 'Pit de pollastre filetejat', brand: 'Mercadona Carn', format: 'Safata 550 g', price: 4.15, category: 'Carn i peix', availability: 'En estoc', zoneId: 'CP', aisle: 'Taulell Carn i Peix', section: 'Aviram', shelf: 'Mural CP-1', level: 'Prestatge 2', tags: ['pollastre', 'carn'], icon: '🍗' },
+        { id: 'm-pic', name: 'Carn picada mixta i hamburgueses', brand: 'Mercadona Carn', format: 'Safata 500 g', price: 3.85, category: 'Carn i peix', availability: 'En estoc', zoneId: 'CP', aisle: 'Taulell Carn i Peix', section: 'Carnisseria', shelf: 'Mural CP-2', level: 'Prestatge 2', tags: ['carn', 'picada', 'hamburgueses'], icon: '🥩' },
+        { id: 'm-per', name: 'Pernil dolç i pit de gall dindi', brand: 'Hacendado', format: 'Pack 250 g', price: 2.45, category: 'Carn i peix', availability: 'En estoc', zoneId: 'CP', aisle: 'Taulell Carn i Peix', section: 'Xarcuteria', shelf: 'Mural CP-3', level: 'Prestatge 3', tags: ['pernil', 'gall dindi', 'embotit'], icon: '🥓' },
+        { id: 'm-sal', name: 'Salmó fresc, lluç i lloms de tonyina', brand: 'Peixateria Mercadona', format: 'Safata 400 g', price: 5.90, category: 'Carn i peix', availability: 'En estoc', zoneId: 'CP', aisle: 'Taulell Carn i Peix', section: 'Peixateria', shelf: 'Mural CP-4', level: 'Taulell gel', tags: ['salmo', 'lluc', 'tonyina', 'peix'], icon: '🐟' },
+
+        // Congelats
+        { id: 'm-vcon', name: 'Verdures i patates congelades', brand: 'Hacendado', format: 'Bossa 1 kg', price: 1.85, category: 'Congelats', availability: 'En estoc', zoneId: 'CG', aisle: 'Zona Congelats', section: 'Congelats', shelf: 'Arcon CG-1', level: 'Compartiment 1', tags: ['verdures', 'patates', 'congelats'], icon: '❄️' },
+        { id: 'm-piz', name: 'Pizzes congelades i gelats variats', brand: 'Hacendado', format: 'Caixa 420 g', price: 2.95, category: 'Congelats', availability: 'En estoc', zoneId: 'CG', aisle: 'Zona Congelats', section: 'Congelats', shelf: 'Arcon CG-2', level: 'Compartiment 2', tags: ['pizzes', 'gelats', 'congelats'], icon: '🍕' },
+        { id: 'm-pcon', name: 'Filets de peix congelat sense espines', brand: 'Hacendado', format: 'Bossa 600 g', price: 4.40, category: 'Congelats', availability: 'En estoc', zoneId: 'CG', aisle: 'Zona Congelats', section: 'Congelats', shelf: 'Arcon CG-3', level: 'Compartiment 3', tags: ['peix', 'congelat'], icon: '🐟' },
+
+        // Neteja i llar
+        { id: 'm-det', name: 'Detergent líquid roba i suavitzant', brand: 'Bosque Verde', format: 'Ampolla 3 L', price: 4.95, category: 'Neteja i llar', availability: 'En estoc', zoneId: 'N1', aisle: 'Passadís 4', section: 'Neteja', shelf: 'Prestatgeria N1', level: 'Prestatge 1', tags: ['detergent', 'suavitzant', 'neteja', 'roba'], icon: '🧴' },
+        { id: 'm-ren', name: 'Rentaplats concentrat i netejador multiús', brand: 'Bosque Verde', format: 'Ampolla 750 ml', price: 1.75, category: 'Neteja i llar', availability: 'En estoc', zoneId: 'N1', aisle: 'Passadís 4', section: 'Neteja', shelf: 'Prestatgeria N1', level: 'Prestatge 3', tags: ['rentaplats', 'netejador', 'multius', 'neteja'], icon: '🧽' },
+        { id: 'm-pap', name: 'Paper de cuina i paper higiènic', brand: 'Bosque Verde', format: 'Pack 12 rotllos', price: 3.95, category: 'Neteja i llar', availability: 'En estoc', zoneId: 'N2', aisle: 'Passadís 5', section: 'Llar', shelf: 'Prestatgeria N2', level: 'Prestatge 1', tags: ['paper', 'cuina', 'higienic', 'llar', 'neteja'], icon: '🧻' }
+      ],
+
+      zara: [
+        { id: 'z-cam1', name: 'Camisa de lli relaxada', brand: 'Zara Woman', format: 'Ref. 2143/045', price: 29.95, category: 'Camises', availability: 'En estoc', zoneId: 'Z-CAM', aisle: 'Zona Nord-Oest', section: 'Camises i Tops', shelf: 'Penjador C-01', level: 'Barra superior', variants: { sizes: ['XS', 'S', 'M', 'L'], colors: ['Blanc', 'Blau cel', 'Sorra'] }, tags: ['camisa', 'lli', 'roba'], icon: '👔' },
+        { id: 'z-cam2', name: 'Camisa popelín ratlles', brand: 'Zara Basic', format: 'Ref. 4381/210', price: 25.95, category: 'Camises', availability: 'En estoc', zoneId: 'Z-CAM', aisle: 'Zona Nord-Oest', section: 'Camises', shelf: 'Penjador C-02', level: 'Barra mitjana', variants: { sizes: ['S', 'M', 'L', 'XL'], colors: ['Blau/Blanc', 'Negre'] }, tags: ['camisa', 'ratlles'], icon: '👔' },
+        { id: 'z-pol1', name: 'Polo punt canalé i top bàsic', brand: 'Zara Studio', format: 'Ref. 5582/112', price: 19.95, category: 'Polos i tops', availability: 'En estoc', zoneId: 'Z-CAM', aisle: 'Zona Nord-Oest', section: 'Polos i tops', shelf: 'Penjador C-04', level: 'Barra inferior', variants: { sizes: ['XS', 'S', 'M', 'L'], colors: ['Cru', 'Negre', 'Verd oliva'] }, tags: ['polo', 'top'], icon: '👚' },
+        { id: 'z-sam1', name: 'Samarreta cotó oversize', brand: 'Zara Man', format: 'Ref. 1887/301', price: 15.95, category: 'Samarretes', availability: 'En estoc', zoneId: 'Z-SAM', aisle: 'Zona Central Nord', section: 'Samarretes', shelf: 'Taula T-01', level: 'Pila central', variants: { sizes: ['S', 'M', 'L', 'XL'], colors: ['Blanc', 'Negre', 'Gris'] }, tags: ['samarreta', 'coto'], icon: '👕' },
+        { id: 'z-des1', name: 'Dessuadora caputxa heavy weight', brand: 'Zara Athletic', format: 'Ref. 0761/408', price: 35.95, category: 'Dessuadores', availability: 'En estoc', zoneId: 'Z-SAM', aisle: 'Zona Central Nord', section: 'Dessuadores', shelf: 'Taula T-02', level: 'Expositor frontal', variants: { sizes: ['S', 'M', 'L', 'XL'], colors: ['Gris vigoré', 'Blau marí', 'Negre'] }, tags: ['dessuadora', 'caputxa'], icon: '🧥' },
+        { id: 'z-tex1', name: 'Texans straight fit vintage', brand: 'Zara Denim', format: 'Ref. 6688/020', price: 39.95, category: 'Texans', availability: 'En estoc', zoneId: 'Z-PAN', aisle: 'Zona Denim', section: 'Texans', shelf: 'Expositor D-01', level: 'Prestatge 2', variants: { sizes: ['36', '38', '40', '42', '44'], colors: ['Blau rentat', 'Negre', 'Gris'] }, tags: ['texans', 'jeans', 'pantalons'], icon: '👖' },
+        { id: 'z-pan1', name: 'Pantalons pinces vestir', brand: 'Zara Tailored', format: 'Ref. 1608/702', price: 35.95, category: 'Pantalons', availability: 'En estoc', zoneId: 'Z-PAN', aisle: 'Zona Denim', section: 'Pantalons', shelf: 'Expositor P-02', level: 'Penjador lateral', variants: { sizes: ['36', '38', '40', '42'], colors: ['Beix', 'Negre', 'Blau marí'] }, tags: ['pantalons', 'vestir'], icon: '👖' },
+        { id: 'z-jer1', name: 'Jersei punt suau coll rodó', brand: 'Zara Knit', format: 'Ref. 3920/119', price: 29.95, category: 'Jerseis', availability: 'En estoc', zoneId: 'Z-ABR', aisle: 'Zona Oest', section: 'Punt i abrics', shelf: 'Penjador A-01', level: 'Prestatge 1', variants: { sizes: ['S', 'M', 'L'], colors: ['Camel', 'Gris', 'Verd'] }, tags: ['jersei', 'punt'], icon: '🧶' },
+        { id: 'z-jaq1', name: 'Jaqueta efecte pell biker', brand: 'Zara Woman', format: 'Ref. 3046/222', price: 59.95, category: 'Jaquetes', availability: 'Estoc limitat', zoneId: 'Z-ABR', aisle: 'Zona Oest', section: 'Exterior', shelf: 'Penjador A-03', level: 'Barra principal', variants: { sizes: ['XS', 'S', 'M', 'L'], colors: ['Negre', 'Marró'] }, tags: ['jaqueta', 'pell'], icon: '🧥' },
+        { id: 'z-abr1', name: 'Abric llana creuat', brand: 'Zara Premium', format: 'Ref. 8490/650', price: 89.95, category: 'Abrics', availability: 'En estoc', zoneId: 'Z-ABR', aisle: 'Zona Oest', section: 'Exterior', shelf: 'Penjador A-05', level: 'Barra alta', variants: { sizes: ['S', 'M', 'L'], colors: ['Camel', 'Negre'] }, tags: ['abric', 'llana'], icon: '🧥' },
+        { id: 'z-ves1', name: 'Vestit midi setinat', brand: 'Zara Woman', format: 'Ref. 7521/033', price: 45.95, category: 'Vestits', availability: 'En estoc', zoneId: 'Z-VES', aisle: 'Zona Central Sud', section: 'Vestits i Faldilles', shelf: 'Expositor V-01', level: 'Barra frontal', variants: { sizes: ['XS', 'S', 'M', 'L'], colors: ['Bordeus', 'Negre', 'Xampany'] }, tags: ['vestit', 'midi'], icon: '👗' },
+        { id: 'z-fal1', name: 'Faldilla prisada midi', brand: 'Zara Woman', format: 'Ref. 4432/188', price: 29.95, category: 'Faldilles', availability: 'En estoc', zoneId: 'Z-VES', aisle: 'Zona Central Sud', section: 'Vestits i Faldilles', shelf: 'Expositor V-03', level: 'Barra dreta', variants: { sizes: ['XS', 'S', 'M', 'L'], colors: ['Negre', 'Caqui'] }, tags: ['faldilla', 'midi'], icon: '👗' },
+        { id: 'z-cal1', name: 'Sabatilles urbanes pell sintètica', brand: 'Zara Footwear', format: 'Ref. 2210/910', price: 39.95, category: 'Calçat', availability: 'En estoc', zoneId: 'Z-CAL', aisle: 'Zona Calçat', section: 'Calçat', shelf: 'Expositor S-01', level: 'Prestatge 2', variants: { sizes: ['37', '38', '39', '40', '41', '42'], colors: ['Blanc', 'Negre'] }, tags: ['calcat', 'sabatilles', 'sabates'], icon: '👟' },
+        { id: 'z-bos1', name: 'Bossa shopper i motxilla urbana', brand: 'Zara Accs', format: 'Ref. 6109/010', price: 27.95, category: 'Bosses i motxilles', availability: 'En estoc', zoneId: 'Z-COM', aisle: 'Zona Complements', section: 'Bosses', shelf: 'Expositor K-01', level: 'Prestatge 2', variants: { sizes: ['Única'], colors: ['Negre', 'Torrat'] }, tags: ['bossa', 'motxilla', 'complements'], icon: '👜' },
+        { id: 'z-com1', name: 'Ulleres de sol acetat i cinturó pell', brand: 'Zara Accs', format: 'Ref. 9012/004', price: 17.95, category: 'Complements', availability: 'En estoc', zoneId: 'Z-COM', aisle: 'Zona Complements', section: 'Complements', shelf: 'Expositor K-02', level: 'Vitrina 1', variants: { sizes: ['Única'], colors: ['Carei', 'Negre'] }, tags: ['complements', 'ulleres', 'cinturo'], icon: '🕶️' }
+      ],
+
+      biblioteca: [
+        { id: 'b-hp', name: 'Harry Potter i la pedra filosofal', brand: 'J. K. Rowling', format: 'Tapa dura · 256 pàg.', price: 'Préstec gratuït', category: 'Fantasia', availability: 'Disponible', zoneId: 'BIB-FAN', aisle: 'Passadís B', section: 'Fantasia', shelf: 'Prestatgeria F-01', level: 'Prestatge 2', tags: ['harry potter', 'fantasia', 'llibre', 'magia'], icon: '⚡' },
+        { id: 'b-pp', name: 'El petit príncep', brand: 'Antoine de Saint-Exupéry', format: 'Edició il·lustrada · 96 pàg.', price: 'Préstec gratuït', category: 'Infantil', availability: 'Disponible', zoneId: 'BIB-INF', aisle: 'Zona Infantil', section: 'Infantil i clàssics', shelf: 'Prestatgeria I-03', level: 'Prestatge 1', tags: ['petit princep', 'infantil', 'classic', 'llibre'], icon: '🌹' },
+        { id: 'b-jf', name: 'Els jocs de la fam', brand: 'Suzanne Collins', format: 'Rústica · 416 pàg.', price: 'Préstec gratuït', category: 'Ciència-ficció', availability: 'Disponible', zoneId: 'BIB-FAN', aisle: 'Passadís B', section: 'Ciència-ficció', shelf: 'Prestatgeria CF-02', level: 'Prestatge 3', tags: ['jocs de la fam', 'ciencia-ficcio', 'aventura'], icon: '🏹' },
+        { id: 'b-sa', name: 'El senyor dels anells: La germandat de l\'anell', brand: 'J. R. R. Tolkien', format: 'Edició integral · 560 pàg.', price: 'Préstec gratuït', category: 'Fantasia', availability: 'Disponible', zoneId: 'BIB-FAN', aisle: 'Passadís B', section: 'Fantasia èpica', shelf: 'Prestatgeria F-02', level: 'Prestatge 2', tags: ['senyor dels anells', 'tolkien', 'fantasia'], icon: '💍' },
+        { id: 'b-nov1', name: 'La plaça del Diamant', brand: 'Mercè Rodoreda', format: 'Butxaca · 240 pàg.', price: 'Préstec gratuït', category: 'Novel·la', availability: 'Disponible', zoneId: 'BIB-NOV', aisle: 'Passadís A', section: 'Novel·la catalana', shelf: 'Prestatgeria N-01', level: 'Prestatge 2', tags: ['novella', 'rodoreda', 'classic'], icon: '📖' },
+        { id: 'b-neg1', name: 'L\'ombra del vent', brand: 'Carlos Ruiz Zafón', format: 'Rústica · 576 pàg.', price: 'Préstec gratuït', category: 'Novel·la negra i policíaca', availability: 'Disponible', zoneId: 'BIB-NEG', aisle: 'Passadís A', section: 'Novel·la negra', shelf: 'Prestatgeria NG-01', level: 'Prestatge 3', tags: ['novella negra', 'policiaca', 'misteri'], icon: '🕵️' },
+        { id: 'b-ave1', name: 'L\'illa del tresor', brand: 'Robert Louis Stevenson', format: 'Edició juvenil · 288 pàg.', price: 'Préstec gratuït', category: 'Aventura', availability: 'Disponible', zoneId: 'BIB-AVE', aisle: 'Passadís B', section: 'Aventura', shelf: 'Prestatgeria AV-01', level: 'Prestatge 2', tags: ['aventura', 'pirates'], icon: '🧭' },
+        { id: 'b-rom1', name: 'Orgull i prejudici', brand: 'Jane Austen', format: 'Tapa dura · 432 pàg.', price: 'Préstec gratuït', category: 'Romàntica', availability: 'Disponible', zoneId: 'BIB-AVE', aisle: 'Passadís B', section: 'Romàntica', shelf: 'Prestatgeria RM-02', level: 'Prestatge 3', tags: ['romantica', 'austen'], icon: '💐' },
+        { id: 'b-his1', name: 'Sàpiens: Una breu història de la humanitat', brand: 'Yuval Noah Harari', format: 'Assaig històric · 512 pàg.', price: 'Préstec gratuït', category: 'Història', availability: 'Disponible', zoneId: 'BIB-HIS', aisle: 'Passadís C', section: 'Història', shelf: 'Prestatgeria H-01', level: 'Prestatge 1', tags: ['historia', 'sapiens', 'assaig'], icon: '🏛️' },
+        { id: 'b-bio1', name: 'Steve Jobs: La biografia', brand: 'Walter Isaacson', format: 'Rústica · 736 pàg.', price: 'Préstec gratuït', category: 'Biografies', availability: 'Disponible', zoneId: 'BIB-HIS', aisle: 'Passadís C', section: 'Biografies', shelf: 'Prestatgeria B-02', level: 'Prestatge 2', tags: ['biografies', 'tecnologia'], icon: '✍️' },
+        { id: 'b-ass1', name: 'Pensar ràpid, pensar a poc a poc', brand: 'Daniel Kahneman', format: 'Assaig · 640 pàg.', price: 'Préstec gratuït', category: 'Assaig', availability: 'Disponible', zoneId: 'BIB-HIS', aisle: 'Passadís C', section: 'Assaig', shelf: 'Prestatgeria AS-03', level: 'Prestatge 3', tags: ['assaig', 'psicologia'], icon: '🧠' },
+        { id: 'b-com1', name: 'One Piece · Volum 1', brand: 'Eiichiro Oda', format: 'Manga · 208 pàg.', price: 'Préstec gratuït', category: 'Còmics i manga', availability: 'Disponible', zoneId: 'BIB-COM', aisle: 'Passadís C', section: 'Còmics i manga', shelf: 'Prestatgeria CM-01', level: 'Prestatge 2', tags: ['comics', 'manga', 'one piece'], icon: '💥' }
+      ],
+
+      decathlon: [
+        // Running (Zona A)
+        { id: 'd-run1', name: 'Sabatilles de running Kiprun KS900', brand: 'Kiprun', format: 'Model KS900 Light', price: 79.99, category: 'Running', availability: 'En estoc', zoneId: 'A1', aisle: 'Zona A · Running', section: 'Calçat running', shelf: 'Prestatgeria A1', level: 'Expositor 2', variants: { sizes: ['39', '40', '41', '42', '43', '44'], colors: ['Blau elèctric', 'Negre/Taronja'] }, tags: ['sabatilles', 'running', 'atletisme'], icon: '👟' },
+        { id: 'd-run2', name: 'Mitjons esportius tècnics Run500', brand: 'Kiprun', format: 'Pack 2 parells', price: 8.99, category: 'Running', availability: 'En estoc', zoneId: 'A1', aisle: 'Zona A · Running', section: 'Accessoris running', shelf: 'Prestatgeria A1', level: 'Prestatge 4', variants: { sizes: ['39-42', '43-46'], colors: ['Blanc', 'Negre'] }, tags: ['mitjons', 'running'], icon: '🧦' },
+        { id: 'd-run3', name: 'Samarreta tècnica transpirable i pantalons curts', brand: 'Kalenji', format: 'Set Run Dry', price: 14.99, category: 'Running', availability: 'En estoc', zoneId: 'A1', aisle: 'Zona A · Running', section: 'Tèxtil running', shelf: 'Prestatgeria A2', level: 'Penjador 1', variants: { sizes: ['S', 'M', 'L', 'XL'], colors: ['Blau', 'Negre', 'Coral'] }, tags: ['samarretes', 'pantalons curts', 'running'], icon: '👕' },
+        { id: 'd-run4', name: 'Rellotge esportiu GPS Kiprun 500', brand: 'Kiprun', format: 'Coros GPS', price: 119.99, category: 'Running', availability: 'Estoc limitat', zoneId: 'A1', aisle: 'Zona A · Running', section: 'Electrònica', shelf: 'Vitrina A2', level: 'Prestatge 2', variants: { sizes: ['Única'], colors: ['Negre', 'Blanc'] }, tags: ['rellotges', 'gps', 'running'], icon: '⌚' },
+
+        // Fitness i musculació (Zona B)
+        { id: 'd-fit1', name: 'Manuelles hexagonals 5 kg (parell)', brand: 'Corength', format: '2 x 5 kg cautxú', price: 29.99, category: 'Fitness i musculació', availability: 'En estoc', zoneId: 'B1', aisle: 'Zona B · Fitness', section: 'Musculació', shelf: 'Prestatgeria B1', level: 'Prestatge 1', tags: ['manuelles', 'peses', 'fitness', 'gimnas'], icon: '🏋️' },
+        { id: 'd-fit2', name: 'Esterilla d\'entrenament i bandes elàstiques', brand: 'Domyos', format: '180x60 cm · 10 mm', price: 18.99, category: 'Fitness i musculació', availability: 'En estoc', zoneId: 'B1', aisle: 'Zona B · Fitness', section: 'Fitness', shelf: 'Prestatgeria B1', level: 'Prestatge 3', variants: { sizes: ['Única'], colors: ['Blau', 'Negre', 'Lila'] }, tags: ['esterilles', 'bandes elastiques', 'ioga', 'fitness'], icon: '🧘' },
+        { id: 'd-fit3', name: 'Guants de gimnàs i ampolla d\'aigua 1 L', brand: 'Domyos', format: 'Pack entrenament', price: 12.99, category: 'Fitness i musculació', availability: 'En estoc', zoneId: 'B1', aisle: 'Zona B · Fitness', section: 'Accessoris fitness', shelf: 'Prestatgeria B2', level: 'Prestatge 2', variants: { sizes: ['S', 'M', 'L'], colors: ['Negre', 'Gris'] }, tags: ['guants', 'ampolles', 'fitness'], icon: '🧤' },
+
+        // Ciclisme (Zona C)
+        { id: 'd-cic1', name: 'Casc de bicicleta RoadR 500 MIPS', brand: 'Van Rysel', format: 'Talla ajustable', price: 49.99, category: 'Ciclisme', availability: 'En estoc', zoneId: 'C1', aisle: 'Zona C · Ciclisme', section: 'Protecció ciclisme', shelf: 'Prestatgeria C1', level: 'Prestatge 2', variants: { sizes: ['M', 'L'], colors: ['Blanc', 'Negre mat'] }, tags: ['cascos', 'bicicleta', 'ciclisme'], icon: '🪖' },
+        { id: 'd-cic2', name: 'Guants de ciclisme i llums LED recarregables', brand: 'Triban', format: 'Kit seguretat', price: 24.99, category: 'Ciclisme', availability: 'En estoc', zoneId: 'C1', aisle: 'Zona C · Ciclisme', section: 'Accessoris bici', shelf: 'Prestatgeria C2', level: 'Prestatge 3', variants: { sizes: ['M', 'L'], colors: ['Negre', 'Groc fluo'] }, tags: ['guants', 'llums', 'ciclisme'], icon: '💡' },
+        { id: 'd-cic3', name: 'Cambres d\'aire 700x28 i bomba d\'inflar peu', brand: 'Btwin', format: 'Vàlvula Presta', price: 21.99, category: 'Ciclisme', availability: 'En estoc', zoneId: 'C1', aisle: 'Zona C · Ciclisme', section: 'Taller ciclisme', shelf: 'Prestatgeria C3', level: 'Prestatge 1', tags: ['cambres aire', 'bombes', 'inflar', 'ciclisme'], icon: '🚲' },
+
+        // Muntanya i senderisme (Zona D)
+        { id: 'd-mun1', name: 'Motxilla de muntanya MH500 30 L', brand: 'Quechua', format: '30 Litres', price: 54.99, category: 'Muntanya i senderisme', availability: 'En estoc', zoneId: 'D1', aisle: 'Zona D · Muntanya', section: 'Motxilles', shelf: 'Prestatgeria D1', level: 'Expositor 1', variants: { sizes: ['30 L'], colors: ['Blau oceà', 'Caqui', 'Negre'] }, tags: ['motxilles', 'muntanya', 'senderisme'], icon: '🎒' },
+        { id: 'd-mun2', name: 'Botes de senderisme impermeables MH500', brand: 'Quechua', format: 'Canya mitjana', price: 69.99, category: 'Muntanya i senderisme', availability: 'En estoc', zoneId: 'D1', aisle: 'Zona D · Muntanya', section: 'Calçat muntanya', shelf: 'Prestatgeria D1', level: 'Expositor 3', variants: { sizes: ['39', '40', '41', '42', '43', '44'], colors: ['Marró', 'Gris'] }, tags: ['botes', 'sabatilles', 'muntanya', 'senderisme'], icon: '🥾' },
+        { id: 'd-mun3', name: 'Bastons de trekking, cantimplora i sac de dormir', brand: 'Forclaz', format: 'Pack bivac', price: 44.99, category: 'Muntanya i senderisme', availability: 'En estoc', zoneId: 'D1', aisle: 'Zona D · Muntanya', section: 'Acampada', shelf: 'Prestatgeria D2', level: 'Prestatge 2', tags: ['bastons', 'cantimplores', 'sacs de dormir', 'muntanya'], icon: '⛺' },
+
+        // Natació (Zona E)
+        { id: 'd-nat1', name: 'Ulleres de natació antibaf Bfit i casquet', brand: 'Nabaiji', format: 'Lents clares', price: 14.99, category: 'Natació', availability: 'En estoc', zoneId: 'E1', aisle: 'Zona E · Natació', section: 'Ulleres i casquets', shelf: 'Prestatgeria E1', level: 'Prestatge 2', variants: { sizes: ['Única'], colors: ['Blau', 'Negre'] }, tags: ['ulleres', 'casquets', 'piscina', 'natacio'], icon: '🥽' },
+        { id: 'd-nat2', name: 'Banyador esportiu resistent al clor', brand: 'Nabaiji', format: 'Teixit Aquaresist', price: 19.99, category: 'Natació', availability: 'En estoc', zoneId: 'E1', aisle: 'Zona E · Natació', section: 'Banyadors', shelf: 'Prestatgeria E1', level: 'Penjador 2', variants: { sizes: ['S', 'M', 'L', 'XL'], colors: ['Blau marí', 'Negre'] }, tags: ['banyadors', 'natacio', 'piscina'], icon: '🩲' },
+        { id: 'd-nat3', name: 'Tovallola de microfibra XL i xancletes piscina', brand: 'Nabaiji', format: '110x175 cm', price: 15.99, category: 'Natació', availability: 'En estoc', zoneId: 'E1', aisle: 'Zona E · Natació', section: 'Tovalloles i calçat', shelf: 'Prestatgeria E1', level: 'Prestatge 4', variants: { sizes: ['39-40', '41-42', '43-44'], colors: ['Turquesa', 'Blau'] }, tags: ['tovalloles', 'microfibra', 'xancletes', 'natacio'], icon: '🩴' },
+
+        // Futbol i esports d'equip (Zona F)
+        { id: 'd-fut1', name: 'Pilota de futbol F500 talla 5 FIFA Basic', brand: 'Kipsta', format: 'Talla 5 oficial', price: 22.99, category: 'Futbol i esports d\'equip', availability: 'En estoc', zoneId: 'F1', aisle: 'Zona F · Futbol', section: 'Pilotes', shelf: 'Prestatgeria F1', level: 'Cistell 1', tags: ['pilotes', 'futbol'], icon: '⚽' },
+        { id: 'd-fut2', name: 'Espinilleres, mitjons i samarreta futbol', brand: 'Kipsta', format: 'Kit partit', price: 24.99, category: 'Futbol i esports d\'equip', availability: 'En estoc', zoneId: 'F1', aisle: 'Zona F · Futbol', section: 'Equipament futbol', shelf: 'Prestatgeria F1', level: 'Prestatge 2', variants: { sizes: ['S', 'M', 'L'], colors: ['Blau', 'Vermell', 'Negre'] }, tags: ['espinilleres', 'mitjons', 'samarretes', 'futbol'], icon: '🧦' },
+        { id: 'd-fut3', name: 'Guants de porter F500 adherència làtex', brand: 'Kipsta', format: 'Làtex 3 mm', price: 19.99, category: 'Futbol i esports d\'equip', availability: 'En estoc', zoneId: 'F1', aisle: 'Zona F · Futbol', section: 'Porters', shelf: 'Prestatgeria F1', level: 'Prestatge 3', variants: { sizes: ['7', '8', '9', '10'], colors: ['Negre/Llima'] }, tags: ['guants', 'porter', 'futbol'], icon: '🧤' },
+
+        // Esports de raqueta (Zona G)
+        { id: 'd-raq1', name: 'Raqueta de pàdel Kuikma PR990 Carbon', brand: 'Kuikma', format: 'Forma llàgrima', price: 89.99, category: 'Esports de raqueta', availability: 'En estoc', zoneId: 'G1', aisle: 'Zona G · Raqueta', section: 'Pàdel', shelf: 'Prestatgeria G1', level: 'Expositor 1', tags: ['raquetes', 'padel', 'raqueta'], icon: '🎾' },
+        { id: 'd-raq2', name: 'Raqueta de tennis TR500 i pot de pilotes', brand: 'Artengo', format: '280 g + 3 pilotes', price: 54.99, category: 'Esports de raqueta', availability: 'En estoc', zoneId: 'G1', aisle: 'Zona G · Raqueta', section: 'Tennis', shelf: 'Prestatgeria G1', level: 'Expositor 2', variants: { sizes: ['Grip 2', 'Grip 3'], colors: ['Blau/Blanc'] }, tags: ['raquetes', 'tennis', 'pilotes'], icon: '🎾' },
+        { id: 'd-raq3', name: 'Volants de bàdminton i funda de raqueta', brand: 'Perfly', format: 'Tub 6 volants', price: 11.99, category: 'Esports de raqueta', availability: 'En estoc', zoneId: 'G1', aisle: 'Zona G · Raqueta', section: 'Bàdminton', shelf: 'Prestatgeria G1', level: 'Prestatge 3', tags: ['volants', 'badminton', 'fundes'], icon: '🏸' },
+
+        // Roba i calçat esportiu (Zona H)
+        { id: 'd-rob1', name: 'Dessuadora i pantalons de xandall cotó', brand: 'Domyos', format: 'Conjunt 2 peces', price: 34.99, category: 'Roba i calçat esportiu', availability: 'En estoc', zoneId: 'H1', aisle: 'Zona H · Roba Esportiva', section: 'Xandalls', shelf: 'Prestatgeria H1', level: 'Penjador 1', variants: { sizes: ['S', 'M', 'L', 'XL'], colors: ['Gris', 'Negre', 'Blau marí'] }, tags: ['dessuadores', 'pantalons', 'xandall', 'roba'], icon: '🧥' },
+        { id: 'd-rob2', name: 'Jaqueta esportiva paravent i samarreta bàsica', brand: 'Kipsta', format: 'Resistent a l\'aigua', price: 29.99, category: 'Roba i calçat esportiu', availability: 'En estoc', zoneId: 'H1', aisle: 'Zona H · Roba Esportiva', section: 'Jaquetes', shelf: 'Prestatgeria H1', level: 'Penjador 2', variants: { sizes: ['S', 'M', 'L', 'XL'], colors: ['Negre', 'Blau'] }, tags: ['jaquetes', 'samarretes', 'roba'], icon: '🧥' },
+        { id: 'd-rob3', name: 'Sabatilles esportives multiús Soft 140', brand: 'Newfeel', format: 'Sola flexible', price: 24.99, category: 'Roba i calçat esportiu', availability: 'En estoc', zoneId: 'H1', aisle: 'Zona H · Roba Esportiva', section: 'Calçat esportiu', shelf: 'Prestatgeria H1', level: 'Prestatge 2', variants: { sizes: ['38', '39', '40', '41', '42', '43'], colors: ['Negre', 'Gris', 'Blau'] }, tags: ['sabatilles', 'calcat', 'esportiu'], icon: '👟' }
+      ]
+    };
+
+    /* =========================================================================
+       3. MOTOR DE CERCA INTEL·LIGENT, PATHFINDING BFS I OPTIMITZACIÓ TSP
+       ========================================================================= */
+    function normalizeText(str) {
+      return (str || '')
+        .toString()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/·/g, ' ')
+        .trim();
+    }
+
+    function stemWord(w) {
+      if (w.length > 4 && w.endsWith('es')) return w.slice(0, -2);
+      if (w.length > 3 && w.endsWith('s')) return w.slice(0, -1);
+      return w;
+    }
+
+    const SYNONYMS = {
+      'lactic': ['llet', 'iogurt', 'formatge', 'mantega'],
+      'esmorzar': ['cereals', 'galetes', 'torrades', 'suc', 'iogurt', 'llet'],
+      'sabates': ['calcat', 'sabatilles', 'botes'],
+      'saba': ['sabatilles', 'sabates'],
+      'jeans': ['texans', 'pantalons'],
+      'llibre': ['novella', 'fantasia', 'infantil', 'aventura', 'assaig'],
+      'neteja': ['detergent', 'rentaplats', 'paper', 'suavitzant']
+    };
+
+    function smartSearchStore(storeId, query) {
+      const store = STORES[storeId];
+      const products = CATALOGS[storeId] || [];
+      const qNorm = normalizeText(query);
+      if (!qNorm) return { categories: [], products: [] };
+
+      const qTokens = qNorm.split(/\s+/).filter(Boolean).map(stemWord);
+
+      const matchedCategories = store.categories.filter(cat => {
+        const cNorm = normalizeText(cat.name);
+        return qTokens.every(t => cNorm.includes(t) || stemWord(cNorm).includes(t));
+      });
+
+      const matchedProducts = products.filter(p => {
+        const haystack = normalizeText([
+          p.name, p.brand, p.category, p.section, p.aisle, ...(p.tags || [])
+        ].join(' '));
+        const words = haystack.split(/\s+/);
+
+        return qTokens.every(t => {
+          if (haystack.includes(t)) return true;
+          if (words.some(w => stemWord(w).startsWith(t) || w.startsWith(t))) return true;
+          const syns = SYNONYMS[t] || [];
+          return syns.some(s => haystack.includes(s));
+        });
+      });
+
+      return { categories: matchedCategories, products: matchedProducts };
+    }
+
+    // Comprova si una cel·la del mapa és transitable (mai travessa prestatgeries ni parets)
+    function buildWalkableGrid(store) {
+      const { cols, rows, zones } = store.map;
+      const grid = Array.from({ length: rows }, () => Array(cols).fill(true));
+      for (const z of zones) {
+        for (let y = z.y; y < z.y + z.h; y++) {
+          for (let x = z.x; x < z.x + z.w; x++) {
+            if (y >= 0 && y < rows && x >= 0 && x < cols) {
+              grid[y][x] = false;
+            }
+          }
+        }
+      }
+      // Assegurar entrada transitable
+      grid[store.entrance.y][store.entrance.x] = true;
+      return grid;
+    }
+
+    function findGridPath(store, start, goal) {
+      const grid = buildWalkableGrid(store);
+      const { cols, rows } = store.map;
+      const sx = Math.round(start.x), sy = Math.round(start.y);
+      const gx = Math.round(goal.x), gy = Math.round(goal.y);
+
+      grid[sy][sx] = true;
+      grid[gy][gx] = true;
+
+      const queue = [[sx, sy]];
+      const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+      const parent = Array.from({ length: rows }, () => Array(cols).fill(null));
+      visited[sy][sx] = true;
+
+      // Prioritat ortogonal (sense travessar obstacles)
+      const dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+      while (queue.length > 0) {
+        const [cx, cy] = queue.shift();
+        if (cx === gx && cy === gy) break;
+        for (const [dx, dy] of dirs) {
+          const nx = cx + dx, ny = cy + dy;
+          if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !visited[ny][nx] && grid[ny][nx]) {
+            visited[ny][nx] = true;
+            parent[ny][nx] = [cx, cy];
+            queue.push([nx, ny]);
+          }
+        }
+      }
+
+      if (!visited[gy][gx]) return [{ x: sx, y: sy }, { x: gx, y: gy }];
+
+      const path = [];
+      let cur = [gx, gy];
+      while (cur) {
+        path.unshift({ x: cur[0], y: cur[1] });
+        cur = parent[cur[1]][cur[0]];
+      }
+      return path;
+    }
+
+    function getZoneForProduct(storeId, product) {
+      const store = STORES[storeId];
+      return store.map.zones.find(z => z.id === product.zoneId) || store.map.zones[0];
+    }
+
+    // Generador d'indicacions escrites reals a partir del camí BFS i les zones del mapa
+    function generateWrittenDirections(storeId, product) {
+      const store = STORES[storeId];
+      const zone = getZoneForProduct(storeId, product);
+      const path = findGridPath(store, store.entrance, zone.approach);
+
+      // Simplificar punts colineals per detectar girs reals
+      const turns = [];
+      for (let i = 1; i < path.length - 1; i++) {
+        const prev = path[i - 1], cur = path[i], next = path[i + 1];
+        const dx1 = cur.x - prev.x, dy1 = cur.y - prev.y;
+        const dx2 = next.x - cur.x, dy2 = next.y - cur.y;
+        if (dx1 !== dx2 || dy1 !== dy2) {
+          const cross = dx1 * dy2 - dy1 * dx2;
+          const turnDir = cross > 0 ? 'a la dreta' : 'a l\'esquerra';
+          turns.push({ x: cur.x, y: cur.y, dir: turnDir });
+        }
+      }
+
+      const steps = [];
+      steps.push(`Des de ${store.entrance.label}, avança cap a l'interior seguint el passadís principal.`);
+      if (turns.length > 0) {
+        const firstTurn = turns[0];
+        steps.push(`Després d'avançar uns metres, gira ${firstTurn.dir} en direcció a ${product.aisle}.`);
+        if (turns.length > 1) {
+          const lastTurn = turns[turns.length - 1];
+          steps.push(`Continua pel passadís fins a l'encreuament i gira ${lastTurn.dir} cap a la secció de ${product.section}.`);
+        }
+      } else {
+        steps.push(`Continua recte pel passadís principal en direcció a ${product.aisle}.`);
+      }
+      steps.push(`Localitza la secció «${product.section}» i dirigeix-te a «${product.shelf}» (${zone.label}).`);
+      steps.push(`Trobaràs el producte exactament a: ${product.level}.`);
+
+      return { steps, zone, path };
+    }
+
+    // Optimització automàtica de llistes (Nearest Neighbor sobre distàncies reals BFS del mapa)
+    function optimizeListItems(storeId, items) {
+      if (!items || items.length === 0) return [];
+      const store = STORES[storeId];
+      const productsMap = Object.fromEntries((CATALOGS[storeId] || []).map(p => [p.id, p]));
+
+      const valid = [];
+      const unlocatable = [];
+      for (const item of items) {
+        const prod = productsMap[item.productId];
+        if (!prod || !prod.zoneId) {
+          unlocatable.push({ ...item, product: prod, unlocatable: true });
+        } else {
+          valid.push({ ...item, product: prod, zone: getZoneForProduct(storeId, prod) });
+        }
+      }
+
+      // Algorisme Nearest Neighbor començant a l'entrada, agrupant productes de la mateixa zona/passadís
+      const remaining = [...valid];
+      const ordered = [];
+      let currentPos = store.entrance;
+
+      while (remaining.length > 0) {
+        let bestIdx = 0;
+        let bestScore = Infinity;
+        for (let i = 0; i < remaining.length; i++) {
+          const cand = remaining[i];
+          const pathLen = findGridPath(store, currentPos, cand.zone.approach).length;
+          // Petit bonus per mantenir agrupats productes del mateix passadís/zona
+          const sameZoneBonus = (ordered.length > 0 && ordered[ordered.length - 1].zone.id === cand.zone.id) ? -4 : 0;
+          const score = pathLen + sameZoneBonus;
+          if (score < bestScore) {
+            bestScore = score;
+            bestIdx = i;
+          }
+        }
+        const chosen = remaining.splice(bestIdx, 1)[0];
+        ordered.push(chosen);
+        currentPos = chosen.zone.approach;
+      }
+
+      return [...ordered, ...unlocatable];
+    }
+
+    /* =========================================================================
+       4. ESTAT GLOBAL I PERSISTÈNCIA (localStorage)
+       ========================================================================= */
+    const STORAGE_KEY = 'findit_app_state_v1';
+
+    function defaultState() {
+      return {
+        activeTab: 'inici',
+        activeStoreId: null,
+        recentStores: [],
+        viewStack: [{ type: 'home' }],
+        lists: {
+          mercadona: [
+            { uid: 'init-1', productId: 'm-lle1', variantLabel: 'Brick 1 L', found: false },
+            { uid: 'init-2', productId: 'm-arr', variantLabel: 'Paquet 1 kg', found: false },
+            { uid: 'init-3', productId: 'm-ton', variantLabel: 'Pack 6x80 g', found: false },
+            { uid: 'init-4', productId: 'm-gal', variantLabel: 'Paquet 800 g', found: false },
+            { uid: 'init-5', productId: 'm-iog2', variantLabel: 'Pack 4x125 g', found: false },
+            { uid: 'init-6', productId: 'm-tom', variantLabel: 'Malla 1 kg', found: false }
+          ],
+          zara: [],
+          biblioteca: [],
+          decathlon: []
+        },
+        templates: [],
+        activeTour: null, // { storeId, currentUid, paused }
+        returns: [
+          { id: 'ret-1', storeId: 'zara', productId: 'z-cam1', variantLabel: 'Talla M · Blanc', status: 'pending' },
+          { id: 'ret-2', storeId: 'decathlon', productId: 'd-run1', variantLabel: 'Talla 42 · Blau elèctric', status: 'pending' },
+          { id: 'ret-3', storeId: 'biblioteca', productId: 'b-hp', variantLabel: 'Tapa dura', status: 'pending' }
+        ],
+        stats: { listsCompleted: 0, returnsCompleted: 0 },
+        mapZoom: 1,
+        modal: null
+      };
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return defaultState();
+        const parsed = JSON.parse(raw);
+        return { ...defaultState(), ...parsed, modal: null };
+      } catch (e) {
+        return defaultState();
+      }
+    }
+
+    let state = loadState();
+    function saveState() {
+      const toSave = { ...state, modal: null };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    }
+
+    /* =========================================================================
+       5. NAVEGACIÓ I GESTIÓ DE CONTEXT
+       ========================================================================= */
+    function currentView() {
+      return state.viewStack[state.viewStack.length - 1] || { type: 'home' };
+    }
+
+    function pushView(view) {
+      state.viewStack.push(view);
+      state.mapZoom = 1;
+      saveState();
+      render();
+    }
+
+    function replaceView(view) {
+      state.viewStack[state.viewStack.length - 1] = view;
+      state.mapZoom = 1;
+      saveState();
+      render();
+    }
+
+    function popView() {
+      if (state.viewStack.length > 1) {
+        state.viewStack.pop();
+        state.mapZoom = 1;
+        saveState();
+        render();
+      }
+    }
+
+    function enterStore(storeId) {
+      state.activeStoreId = storeId;
+      state.recentStores = [storeId, ...state.recentStores.filter(id => id !== storeId)].slice(0, 4);
+      state.activeTab = 'cerca';
+      state.viewStack = [{ type: 'storeSearch', storeId, query: '' }];
+      saveState();
+      render();
+    }
+
+    function switchTab(tab) {
+      state.activeTab = tab;
+      if (tab === 'inici') {
+        state.viewStack = [{ type: 'home' }];
+      } else if (tab === 'cerca') {
+        if (state.activeStoreId) {
+          state.viewStack = [{ type: 'storeSearch', storeId: state.activeStoreId, query: '' }];
+        } else {
+          state.viewStack = [{ type: 'globalStoreSearch', query: '' }];
+        }
+      } else if (tab === 'llistes') {
+        state.viewStack = [{ type: 'listsHome' }];
+      } else if (tab === 'devolucions') {
+        state.viewStack = [{ type: 'returnsHome' }];
+      } else if (tab === 'perfil') {
+        state.viewStack = [{ type: 'profile' }];
+      }
+      saveState();
+      render();
+    }
+
+    /* =========================================================================
+       6. UTILITATS GRÀFIQUES (SVG PRODUCTES I MAPES 2D)
+       ========================================================================= */
+    function getCategoryMeta(storeId, categoryName) {
+      const store = STORES[storeId];
+      return store.categories.find(c => c.name === categoryName) || { color: '#246BCE', bg: '#EAF3FF', icon: '📦' };
+    }
+
+    function renderProductArt(storeId, product, size = 60) {
+      const cat = getCategoryMeta(storeId, product.category);
+      const fontSize = Math.round(size * 0.48);
+      return `
+        <div style="width:${size}px;height:${size}px;border-radius:${Math.round(size * 0.22)}px;background:linear-gradient(135deg, ${cat.bg}, #FFFFFF);border:1.5px solid ${cat.color}33;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;overflow:hidden;">
+          <span style="font-size:${fontSize}px;line-height:1;">${product.icon || cat.icon}</span>
+          <span style="position:absolute;bottom:0;left:0;right:0;height:4px;background:${cat.color};"></span>
+        </div>
+      `;
+    }
+
+    function renderStoreMapSVG(storeId, options = {}) {
+      const store = STORES[storeId];
+      const { cols, rows, zones } = store.map;
+      const cell = 28;
+      const W = cols * cell;
+      const H = rows * cell;
+
+      const {
+        targetZone = null,
+        singlePath = null,
+        multiStops = null, // [{ zone, index, found, label }]
+        zoom = 1
+      } = options;
+
+      // Construir ruta multiparada si és mapa de llista completa
+      let multiPathPoints = [];
+      if (multiStops && multiStops.length > 0) {
+        let cur = store.entrance;
+        for (const stop of multiStops) {
+          const seg = findGridPath(store, cur, stop.zone.approach);
+          if (multiPathPoints.length > 0) seg.shift();
+          multiPathPoints = multiPathPoints.concat(seg);
+          cur = stop.zone.approach;
+        }
+      }
+
+      const toPx = (pt) => `${(pt.x + 0.5) * cell},${(pt.y + 0.5) * cell}`;
+      const pathStr = singlePath ? singlePath.map(toPx).join(' ') : (multiPathPoints.length ? multiPathPoints.map(toPx).join(' ') : '');
+
+      const zonesSvg = zones.map(z => {
+        const isTarget = targetZone && targetZone.id === z.id;
+        return `
+          <g>
+            <rect x="${z.x * cell + 2}" y="${z.y * cell + 2}" width="${z.w * cell - 4}" height="${z.h * cell - 4}"
+              rx="6" fill="${z.color}" stroke="${isTarget ? '#246BCE' : z.border}" stroke-width="${isTarget ? 3 : 1.5}" />
+            <text x="${(z.x + z.w / 2) * cell}" y="${(z.y + z.h / 2) * cell + 3}"
+              text-anchor="middle" font-size="9.5" font-weight="700" fill="#1E293B" font-family="Inter, sans-serif">
+              ${z.label}
+            </text>
+          </g>
+        `;
+      }).join('');
+
+      // Marcador de destinació únic
+      let targetPinSvg = '';
+      if (targetZone) {
+        const px = targetZone.pin.x * cell;
+        const py = targetZone.pin.y * cell;
+        targetPinSvg = `
+          <g>
+            <circle cx="${px}" cy="${py}" r="14" fill="#246BCE" opacity="0.22">
+              <animate attributeName="r" values="10;18;10" dur="1.6s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="${px}" cy="${py}" r="8" fill="#246BCE" stroke="#FFFFFF" stroke-width="2.5" />
+            <circle cx="${px}" cy="${py}" r="3" fill="#FFFFFF" />
+          </g>
+        `;
+      }
+
+      // Parades numerades per a mapa de llista completa
+      let stopsSvg = '';
+      if (multiStops && multiStops.length > 0) {
+        // Agrupar lleugerament si coincideixen al mateix pin
+        const seenCoords = {};
+        stopsSvg = multiStops.map(st => {
+          const key = `${st.zone.id}`;
+          const offsetIdx = seenCoords[key] || 0;
+          seenCoords[key] = offsetIdx + 1;
+          const px = st.zone.pin.x * cell + (offsetIdx * 15 - (offsetIdx > 0 ? 7 : 0));
+          const py = st.zone.pin.y * cell - (offsetIdx * 8);
+          const fill = st.found ? '#16A34A' : '#246BCE';
+          return `
+            <g>
+              <circle cx="${px}" cy="${py}" r="10.5" fill="${fill}" stroke="#FFFFFF" stroke-width="2" />
+              <text x="${px}" y="${py + 3.5}" text-anchor="middle" font-size="10" font-weight="800" fill="#FFFFFF" font-family="Inter, sans-serif">${st.index}</text>
+            </g>
+          `;
+        }).join('');
+      }
+
+      const ex = (store.entrance.x + 0.5) * cell;
+      const ey = (store.entrance.y + 0.5) * cell;
+
+      return `
+        <svg viewBox="0 0 ${W} ${H}" style="width:${Math.round(100 * zoom)}%;min-width:340px;height:auto;display:block;background:#F8FAFC;">
+          <defs>
+            <pattern id="gridPat" width="${cell}" height="${cell}" patternUnits="userSpaceOnUse">
+              <path d="M ${cell} 0 L 0 0 0 ${cell}" fill="none" stroke="#E2E8F0" stroke-width="0.6" />
+            </pattern>
+          </defs>
+          <!-- Zones transitables (passadissos) -->
+          <rect x="0" y="0" width="${W}" height="${H}" fill="url(#gridPat)" />
+          <rect x="2" y="2" width="${W - 4}" height="${H - 4}" fill="none" stroke="#94A3B8" stroke-width="3" rx="8" />
+
+          <!-- Prestatgeries, expositors i obstacles -->
+          ${zonesSvg}
+
+          <!-- Línia de ruta blava -->
+          ${pathStr ? `
+            <polyline points="${pathStr}" fill="none" stroke="#246BCE" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="8 6" />
+          ` : ''}
+
+          <!-- Marcador TU ETS AQUÍ (Entrada) -->
+          <g>
+            <circle cx="${ex}" cy="${ey}" r="11" fill="#174A91" stroke="#FFFFFF" stroke-width="2.5" />
+            <text x="${ex}" y="${ey + 3}" text-anchor="middle" font-size="9" font-weight="800" fill="#FFFFFF">TU</text>
+            <rect x="${ex - 36}" y="${ey - 27}" width="72" height="15" rx="4" fill="#174A91" />
+            <text x="${ex}" y="${ey - 17}" text-anchor="middle" font-size="8" font-weight="800" fill="#FFFFFF">TU ETS AQUÍ</text>
+          </g>
+
+          ${targetPinSvg}
+          ${stopsSvg}
+        </svg>
+      `;
+    }
+
+    /* =========================================================================
+       7. RENDERITZADOR DE PANTALLES
+       ========================================================================= */
+    function renderTopBar(title, subtitle, showBack = true) {
+      const store = state.activeStoreId ? STORES[state.activeStoreId] : null;
+      return `
+        <header class="top-bar">
+          ${showBack ? `
+            <button class="btn-icon" onclick="popView()" aria-label="Enrere">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+          ` : ''}
+          <div class="top-title-wrap">
+            <div class="top-title">${title}</div>
+            ${subtitle ? `<div class="top-subtitle">${subtitle}</div>` : ''}
+          </div>
+          ${store ? `
+            <button class="store-pill" onclick="switchTab('inici')" title="Canviar d'establiment">
+              <span style="width:8px;height:8px;border-radius:50%;background:${store.color};"></span>
+              ${store.name}
+            </button>
+          ` : ''}
+        </header>
+      `;
+    }
+
+    function renderHome() {
+      const recentHtml = state.recentStores.length === 0
+        ? `<div class="empty-state">Encara no has visitat cap establiment. Comença seleccionant-ne un.</div>`
+        : state.recentStores.map(id => {
+            const s = STORES[id];
+            return `
+              <button class="store-card" onclick="enterStore('${s.id}')">
+                <div class="store-logo" style="background:${s.color};">${s.short}</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:15px;font-weight:700;color:var(--text-primary);">${s.name}</div>
+                  <div style="font-size:12px;color:var(--text-secondary);">${s.desc}</div>
+                </div>
+                <span class="btn btn-light btn-sm">Entrar</span>
+              </button>
+            `;
+          }).join('');
+
+      return `
+        <main class="main-content fade-in">
+          <!-- 1. Capçalera FINDIT -->
+          <div class="hero-brand">
+            <div class="brand-mark">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <div>
+              <div class="brand-name">FINDIT</div>
+            </div>
+          </div>
+
+          <h1 class="hero-title">On vols començar?</h1>
+          <p class="hero-sub">Troba fàcilment qualsevol producte dins del teu establiment.</p>
+
+          <!-- 2. Tres opcions principals agrupades -->
+          <div class="start-options-group">
+            <button class="option-card primary-opt" onclick="pushView({ type: 'globalStoreSearch', query: '' })">
+              <div class="option-icon-box">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <div style="flex:1;">
+                <div class="option-title">Cercar</div>
+                <div class="option-desc">Busca un establiment</div>
+              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+
+            <button class="option-card" onclick="pushView({ type: 'qrScan' })">
+              <div class="option-icon-box">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM19 14h2v2h-2zM14 19h2v2h-2zM19 19h2v2h-2z"/></svg>
+              </div>
+              <div style="flex:1;">
+                <div class="option-title">Escanejar QR</div>
+                <div class="option-desc">Identifica el teu establiment</div>
+              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+
+            <button class="option-card" onclick="pushView({ type: 'detectStore' })">
+              <div class="option-icon-box">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg>
+              </div>
+              <div style="flex:1;">
+                <div class="option-title">Detectar establiment</div>
+                <div class="option-desc">Utilitza la teva ubicació</div>
+              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          </div>
+
+          <!-- 3. Últims establiments visitats -->
+          <div class="section-label">Els teus últims establiments</div>
+          ${recentHtml}
+        </main>
+      `;
+    }
+
+    function renderGlobalStoreSearch(view) {
+      const qNorm = normalizeText(view.query || '');
+      const list = Object.values(STORES).filter(s => {
+        if (!qNorm) return true;
+        return normalizeText(s.name + ' ' + s.desc).includes(qNorm);
+      });
+
+      return `
+        ${renderTopBar('Troba un establiment', 'Selecciona on vols comprar o consultar', state.viewStack.length > 1)}
+        <main class="main-content fade-in">
+          <div class="search-box">
+            <span class="search-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input id="globalStoreInput" class="search-input" type="text" placeholder="Cerca un establiment..."
+              value="${view.query || ''}" oninput="updateCurrentQuery(this.value)" autofocus />
+            ${view.query ? `<button class="search-clear" onclick="updateCurrentQuery('')">×</button>` : ''}
+          </div>
+
+          <div class="section-label">Establiments disponibles (${list.length})</div>
+          ${list.length === 0 ? `<div class="empty-state">No s'ha trobat cap establiment amb «${view.query}».</div>` : list.map(s => `
+            <button class="store-card" onclick="enterStore('${s.id}')">
+              <div class="store-logo" style="background:${s.color};">${s.short}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:16px;font-weight:700;color:var(--text-primary);">${s.name}</div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${s.desc}</div>
+              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#246BCE" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          `).join('')}
+        </main>
+      `;
+    }
+
+    function renderQrScan() {
+      return `
+        ${renderTopBar('Escanejar QR', 'Identifica l\'establiment amb la càmera')}
+        <main class="main-content fade-in">
+          <div class="sim-frame">
+            <div style="font-size:13px;font-weight:600;color:#93C5FD;">CÀMERA EN DIRECTE (SIMULACIÓ)</div>
+            <div class="qr-box">
+              <div class="qr-laser"></div>
+              <svg width="74" height="74" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM19 14h2v2h-2zM14 19h2v2h-2zM19 19h2v2h-2z"/></svg>
+            </div>
+            <p style="font-size:13px;color:#CBD5E1;line-height:1.4;">Apunta al codi QR situat a l'entrada de l'establiment o selecciona'n un a continuació per simular la lectura:</p>
+          </div>
+
+          <div class="section-label">Simular lectura QR de:</div>
+          ${Object.values(STORES).map(s => `
+            <button class="store-card" onclick="enterStore('${s.id}')">
+              <div class="store-logo" style="background:${s.color};">${s.short}</div>
+              <div style="flex:1;">
+                <div style="font-size:15px;font-weight:700;">QR · ${s.name}</div>
+                <div style="font-size:12px;color:var(--text-secondary);">Toca per identificar i entrar</div>
+              </div>
+              <span class="badge badge-price">Escanejar</span>
+            </button>
+          `).join('')}
+        </main>
+      `;
+    }
+
+    function renderDetectStore() {
+      return `
+        ${renderTopBar('Detectar establiment', 'Geolocalització en temps real')}
+        <main class="main-content fade-in">
+          <div class="sim-frame">
+            <div style="font-size:13px;font-weight:600;color:#93C5FD;">GPS ACTIU (SIMULACIÓ)</div>
+            <div class="radar-circle">
+              <div class="radar-pulse"></div>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2.2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <div style="font-size:15px;font-weight:700;margin-bottom:4px;">Buscant un establiment proper...</div>
+            <p style="font-size:12px;color:#CBD5E1;">S'han detectat 4 establiments compatibles a menys de 500 m.</p>
+          </div>
+
+          <div class="section-label">Establiments detectats a prop:</div>
+          ${Object.values(STORES).map((s, idx) => `
+            <button class="store-card" onclick="enterStore('${s.id}')">
+              <div class="store-logo" style="background:${s.color};">${s.short}</div>
+              <div style="flex:1;">
+                <div style="font-size:15px;font-weight:700;">${s.name}</div>
+                <div style="font-size:12px;color:var(--text-secondary);">A ${(idx + 1) * 45} metres · Senyal òptim</div>
+              </div>
+              <span class="badge badge-avail">Entrar</span>
+            </button>
+          `).join('')}
+        </main>
+      `;
+    }
+
+    function renderStoreSearch(view) {
+      const storeId = view.storeId;
+      const store = STORES[storeId];
+      const query = view.query || '';
+      const hasQuery = query.trim().length > 0;
+      const results = hasQuery ? smartSearchStore(storeId, query) : null;
+
+      return `
+        ${renderTopBar(store.name, 'Cerca de productes i categories', false)}
+        <main class="main-content fade-in">
+          <div class="search-box">
+            <span class="search-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input id="storeProductInput" class="search-input" type="text" placeholder="Cerca productes o categories (ex: Lle, Làctics)..."
+              value="${query}" oninput="updateCurrentQuery(this.value)" />
+            ${query ? `<button class="search-clear" onclick="updateCurrentQuery('')">×</button>` : ''}
+          </div>
+
+          ${!hasQuery ? `
+            <div class="card" style="background:linear-gradient(135deg, ${store.color}, #174A91);color:#FFFFFF;margin-bottom:16px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                <div>
+                  <div style="font-size:12px;opacity:0.85;font-weight:600;">ESTABLIMENT ACTIU</div>
+                  <div style="font-size:20px;font-weight:800;margin:2px 0;">${store.name}</div>
+                  <div style="font-size:12px;opacity:0.9;">${CATALOGS[storeId].length} referències · ${store.categories.length} categories</div>
+                </div>
+                <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff;" onclick="pushView({ type: 'storeMapOnly', storeId: '${storeId}' })">
+                  Mapa
+                </button>
+              </div>
+            </div>
+
+            <div class="section-label">Categories de ${store.name}</div>
+            <div class="cat-grid">
+              ${store.categories.map(cat => `
+                <button class="cat-tile" onclick="pushView({ type: 'categoryProducts', storeId: '${storeId}', category: '${cat.name.replace(/'/g, "\\'")}' })">
+                  <div class="cat-dot" style="background:${cat.bg};color:${cat.color};">${cat.icon}</div>
+                  <div style="font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.25;">${cat.name}</div>
+                </button>
+              `).join('')}
+            </div>
+
+            <div class="section-label">Productes destacats</div>
+            ${CATALOGS[storeId].slice(0, 6).map(p => renderProductRow(storeId, p)).join('')}
+          ` : `
+            ${results.categories.length > 0 ? `
+              <div class="section-label">Categories relacionades (${results.categories.length})</div>
+              <div class="cat-grid" style="margin-bottom:14px;">
+                ${results.categories.map(cat => `
+                  <button class="cat-tile" style="border-color:${cat.color};" onclick="pushView({ type: 'categoryProducts', storeId: '${storeId}', category: '${cat.name.replace(/'/g, "\\'")}' })">
+                    <div class="cat-dot" style="background:${cat.bg};color:${cat.color};">${cat.icon}</div>
+                    <div>
+                      <div style="font-size:13px;font-weight:800;color:${cat.color};">${cat.name}</div>
+                      <div style="font-size:11px;color:var(--text-secondary);">Veure tots els productes</div>
+                    </div>
+                  </button>
+                `).join('')}
+              </div>
+            ` : ''}
+
+            <div class="section-label">Productes trobats (${results.products.length})</div>
+            ${results.products.length === 0 ? `
+              <div class="empty-state">No s'han trobat productes per «${query}» dins de ${store.name}. Prova amb una altra paraula o categoria.</div>
+            ` : results.products.map(p => renderProductRow(storeId, p)).join('')}
+          `}
+        </main>
+      `;
+    }
+
+    function renderProductRow(storeId, p) {
+      const priceText = typeof p.price === 'number' ? `${p.price.toFixed(2).replace('.', ',')} €` : p.price;
+      return `
+        <div class="product-row" onclick="openProductDetail('${storeId}', '${p.id}', 'search')">
+          ${renderProductArt(storeId, p, 58)}
+          <div class="product-info">
+            <div class="product-name">${p.name}</div>
+            <div class="product-meta">${p.brand} · ${p.category}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+              <span class="badge badge-price">${priceText}</span>
+              <span style="font-size:11px;font-weight:600;color:var(--blue-primary);">${p.aisle} · ${p.shelf}</span>
+            </div>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      `;
+    }
+
+    function renderCategoryProducts(view) {
+      const { storeId, category } = view;
+      const store = STORES[storeId];
+      const catMeta = getCategoryMeta(storeId, category);
+      const list = CATALOGS[storeId].filter(p => p.category === category);
+
+      return `
+        ${renderTopBar(category, `${store.name} · ${list.length} productes`)}
+        <main class="main-content fade-in">
+          <div class="card" style="background:${catMeta.bg};border-color:${catMeta.color}44;margin-bottom:14px;display:flex;align-items:center;gap:12px;">
+            <div style="font-size:32px;">${catMeta.icon}</div>
+            <div>
+              <div style="font-size:17px;font-weight:800;color:var(--text-primary);">${category}</div>
+              <div style="font-size:12px;color:var(--text-secondary);">${list.length} productes disponibles a ${store.name}</div>
+            </div>
+          </div>
+          ${list.map(p => renderProductRow(storeId, p)).join('')}
+        </main>
+      `;
+    }
+
+    function openProductDetail(storeId, productId, source = 'search', extra = {}) {
+      const prod = CATALOGS[storeId].find(p => p.id === productId);
+      const defaultSize = prod.variants?.sizes ? prod.variants.sizes[0] : null;
+      const defaultColor = prod.variants?.colors ? prod.variants.colors[0] : null;
+      pushView({
+        type: 'productDetail',
+        storeId,
+        productId,
+        source,
+        selectedSize: extra.selectedSize || defaultSize,
+        selectedColor: extra.selectedColor || defaultColor,
+        returnId: extra.returnId || null
+      });
+    }
+
+    function renderProductDetail(view) {
+      const { storeId, productId, source, selectedSize, selectedColor, returnId } = view;
+      const store = STORES[storeId];
+      const p = CATALOGS[storeId].find(x => x.id === productId);
+      const priceText = typeof p.price === 'number' ? `${p.price.toFixed(2).replace('.', ',')} €` : p.price;
+      const availBadge = p.availability === 'Estoc limitat' ? 'badge-low' : 'badge-avail';
+
+      const ctx = source === 'return'
+        ? { source: 'return', returnId, storeId, productId }
+        : { source: 'search', storeId, productId };
+
+      return `
+        ${renderTopBar(source === 'return' ? 'Devolució de producte' : 'Fitxa del producte', store.name)}
+        <main class="main-content fade-in">
+          <div class="card" style="text-align:center;">
+            <div style="display:flex;justify-content:center;margin-bottom:14px;">
+              ${renderProductArt(storeId, p, 112)}
+            </div>
+            <div style="display:flex;justify-content:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+              <span class="badge ${availBadge}">${p.availability}</span>
+              <span class="badge badge-price">${p.category}</span>
+            </div>
+            <h2 style="font-size:20px;font-weight:800;line-height:1.25;margin-bottom:4px;">${p.name}</h2>
+            <div style="font-size:14px;color:var(--text-secondary);margin-bottom:10px;">
+              ${p.brand} · ${p.format}
+            </div>
+            <div style="font-size:24px;font-weight:800;color:var(--blue-primary);">${priceText}</div>
+
+            ${p.variants ? `
+              <div style="text-align:left;margin-top:14px;padding-top:14px;border-top:1px solid var(--border-soft);">
+                ${p.variants.sizes ? `
+                  <div style="font-size:12px;font-weight:700;color:var(--text-secondary);">Talla / Format</div>
+                  <div class="chip-row" style="margin-bottom:10px;">
+                    ${p.variants.sizes.map(sz => `
+                      <button class="chip ${selectedSize === sz ? 'selected' : ''}" onclick="setDetailVariant('selectedSize', '${sz}')">${sz}</button>
+                    `).join('')}
+                  </div>
+                ` : ''}
+                ${p.variants.colors ? `
+                  <div style="font-size:12px;font-weight:700;color:var(--text-secondary);">Color</div>
+                  <div class="chip-row">
+                    ${p.variants.colors.map(cl => `
+                      <button class="chip ${selectedColor === cl ? 'selected' : ''}" onclick="setDetailVariant('selectedColor', '${cl}')">${cl}</button>
+                    `).join('')}
+                  </div>
+                ` : ''}
+              </div>
+            ` : ''}
+
+            <!-- Ubicació exacta destacada -->
+            <div class="location-box" style="text-align:left;">
+              <div class="location-label">${source === 'return' ? 'Ubicació original dins de l\'establiment' : 'Ubicació exacta'}</div>
+              <div class="location-value">${p.aisle} · ${p.section} · ${p.shelf} · ${p.level}</div>
+            </div>
+
+            <!-- Botons independents Com arribar-hi i Veure mapa -->
+            <div class="btn-grid-2">
+              <button class="btn btn-primary" onclick='openDirections(${JSON.stringify(ctx)})'>
+                Com arribar-hi
+              </button>
+              <button class="btn btn-dark" onclick='openProductMap(${JSON.stringify(ctx)})'>
+                Veure mapa
+              </button>
+            </div>
+          </div>
+
+          ${source !== 'return' ? `
+            <div class="card" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+              <button class="btn btn-light" onclick="addProductToStoreList('${storeId}', '${p.id}', '${[selectedSize, selectedColor].filter(Boolean).join(' · ') || p.format}')">
+                + Afegir a la meva llista de ${store.name}
+              </button>
+              <button class="btn btn-outline" onclick="addProductToReturns('${storeId}', '${p.id}', '${[selectedSize, selectedColor].filter(Boolean).join(' · ') || p.format}')">
+                Marcar per retornar a aquesta ubicació
+              </button>
+            </div>
+          ` : ''}
+        </main>
+      `;
+    }
+
+    function openDirections(ctx) {
+      pushView({ type: 'directions', ctx });
+    }
+
+    function openProductMap(ctx) {
+      pushView({ type: 'productMap', ctx });
+    }
+
+    function renderDirections(view) {
+      const { ctx } = view;
+      const store = STORES[ctx.storeId];
+      const p = CATALOGS[ctx.storeId].find(x => x.id === ctx.productId);
+      const { steps, zone } = generateWrittenDirections(ctx.storeId, p);
+
+      let actionFooter = '';
+      if (ctx.source === 'list') {
+        actionFooter = `
+          <div class="floating-cta">
+            <button class="btn btn-success" onclick="markTourItemFound('${ctx.storeId}', '${ctx.itemUid}', true)">
+              ✓ PRODUCTE TROBAT
+            </button>
+          </div>
+        `;
+      } else if (ctx.source === 'return') {
+        actionFooter = `
+          <div class="floating-cta">
+            <button class="btn btn-success" onclick="completeReturnItem('${ctx.returnId}')">
+              ✓ PRODUCTE RETORNAT
+            </button>
+          </div>
+        `;
+      }
+
+      return `
+        ${renderTopBar('Com arribar-hi', `${store.name} · ${p.name}`)}
+        <main class="main-content fade-in">
+          <div class="card" style="margin-bottom:14px;display:flex;align-items:center;gap:12px;">
+            ${renderProductArt(ctx.storeId, p, 54)}
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:15px;font-weight:800;">${p.name}</div>
+              <div style="font-size:12px;color:var(--blue-primary);font-weight:700;margin-top:2px;">
+                ${p.aisle} · ${p.section} · ${p.shelf} · ${p.level}
+              </div>
+            </div>
+          </div>
+
+          <div class="section-label">Indicacions pas a pas (${zone.label})</div>
+          ${steps.map((txt, idx) => `
+            <div class="step-item">
+              <div class="step-num">${idx + 1}</div>
+              <div style="font-size:14px;font-weight:500;line-height:1.45;color:var(--text-primary);">${txt}</div>
+            </div>
+          `).join('')}
+
+          ${ctx.source === 'search' ? `
+            <button class="btn btn-light" style="margin-top:8px;" onclick='replaceView({ type: "productMap", ctx: ${JSON.stringify(ctx)} })'>
+              Veure recorregut al mapa 2D
+            </button>
+          ` : ''}
+
+          ${actionFooter}
+        </main>
+      `;
+    }
+
+    function renderProductMap(view) {
+      const { ctx } = view;
+      const store = STORES[ctx.storeId];
+      const p = CATALOGS[ctx.storeId].find(x => x.id === ctx.productId);
+      const { zone, path } = generateWrittenDirections(ctx.storeId, p);
+
+      let actionFooter = '';
+      if (ctx.source === 'list') {
+        actionFooter = `
+          <div class="floating-cta">
+            <button class="btn btn-success" onclick="markTourItemFound('${ctx.storeId}', '${ctx.itemUid}', true)">
+              ✓ PRODUCTE TROBAT
+            </button>
+          </div>
+        `;
+      } else if (ctx.source === 'return') {
+        actionFooter = `
+          <div class="floating-cta">
+            <button class="btn btn-success" onclick="completeReturnItem('${ctx.returnId}')">
+              ✓ PRODUCTE RETORNAT
+            </button>
+          </div>
+        `;
+      }
+
+      return `
+        ${renderTopBar('Mapa de l\'establiment', `${store.name} · ${p.name}`)}
+        <main class="main-content fade-in">
+          <div class="location-box" style="margin-top:0;">
+            <div class="location-label">${ctx.source === 'return' ? 'Destí de devolució' : 'Destí del producte'}</div>
+            <div class="location-value">${p.aisle} · ${p.section} · ${p.shelf} · ${p.level}</div>
+          </div>
+
+          <div class="map-wrapper">
+            <div class="map-toolbar">
+              <span style="font-size:12px;font-weight:700;color:var(--blue-dark);">Vista superior 2D · ${store.name}</span>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-outline btn-sm" onclick="adjustZoom(-0.2)">−</button>
+                <button class="btn btn-outline btn-sm" onclick="adjustZoom(0.2)">+</button>
+              </div>
+            </div>
+            <div class="map-viewport">
+              ${renderStoreMapSVG(ctx.storeId, { targetZone: zone, singlePath: path, zoom: state.mapZoom })}
+            </div>
+            <div class="map-legend">
+              <span class="legend-item"><span class="legend-swatch" style="background:#174A91;border-radius:50%;"></span> TU ETS AQUÍ</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#246BCE;border-radius:50%;"></span> Destinació</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#246BCE;height:4px;"></span> Ruta</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#FDE68A;border:1px solid #D97706;"></span> Prestatgeries</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#F8FAFC;border:1px solid #CBD5E1;"></span> Passadissos</span>
+            </div>
+          </div>
+
+          ${ctx.source === 'search' ? `
+            <button class="btn btn-light" style="margin-top:12px;" onclick='replaceView({ type: "directions", ctx: ${JSON.stringify(ctx)} })'>
+              Veure indicacions escrites
+            </button>
+          ` : ''}
+
+          ${actionFooter}
+        </main>
+      `;
+    }
+
+    function renderStoreMapOnly(view) {
+      const store = STORES[view.storeId];
+      return `
+        ${renderTopBar('Mapa general', store.name)}
+        <main class="main-content fade-in">
+          <div class="map-wrapper">
+            <div class="map-toolbar">
+              <span style="font-size:12px;font-weight:700;color:var(--blue-dark);">Plànol complet · ${store.name}</span>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-outline btn-sm" onclick="adjustZoom(-0.2)">−</button>
+                <button class="btn btn-outline btn-sm" onclick="adjustZoom(0.2)">+</button>
+              </div>
+            </div>
+            <div class="map-viewport">
+              ${renderStoreMapSVG(view.storeId, { zoom: state.mapZoom })}
+            </div>
+            <div class="map-legend">
+              <span class="legend-item"><span class="legend-swatch" style="background:#174A91;border-radius:50%;"></span> Entrada / TU ETS AQUÍ</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#CBD5E1;"></span> Prestatgeries i zones</span>
+            </div>
+          </div>
+        </main>
+      `;
+    }
+
+    /* =========================================================================
+       8. LLISTES DE COMPRA, OPTIMITZACIÓ AUTOMÀTICA I FLUX CONTINU
+       ========================================================================= */
+    function renderListsHome() {
+      const storeCards = Object.values(STORES).map(s => {
+        const items = state.lists[s.id] || [];
+        const total = items.length;
+        const found = items.filter(i => i.found).length;
+        const pct = total > 0 ? Math.round((found / total) * 100) : 0;
+
+        return `
+          <div class="card" style="margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+              <div class="store-logo" style="background:${s.color};">${s.short}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:16px;font-weight:800;">La meva llista de ${s.name}</div>
+                <div style="font-size:13px;color:var(--text-secondary);">${total} productes · ${found} trobats (${pct}%)</div>
+              </div>
+            </div>
+            <div class="progress-track" style="margin-bottom:12px;">
+              <div class="progress-fill" style="width:${pct}%;"></div>
+            </div>
+            <button class="btn btn-light btn-sm" style="width:100%;" onclick="openListDetail('${s.id}')">
+              Veure llista
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      const templatesHtml = state.templates.length === 0 ? '' : `
+        <div class="section-label">Llistes guardades per a futures compres</div>
+        ${state.templates.map(tpl => {
+          const s = STORES[tpl.storeId];
+          return `
+            <div class="card" style="margin-bottom:10px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <div class="store-logo" style="width:38px;height:38px;font-size:13px;background:${s.color};">${s.short}</div>
+                <div style="flex:1;">
+                  <div style="font-size:15px;font-weight:700;">${tpl.name}</div>
+                  <div style="font-size:12px;color:var(--text-secondary);">${s.name} · ${tpl.items.length} productes</div>
+                </div>
+              </div>
+              <div class="btn-grid-2">
+                <button class="btn btn-primary btn-sm" style="width:100%;" onclick="startFromTemplate('${tpl.id}')">Iniciar nova compra</button>
+                <button class="btn btn-danger-outline btn-sm" style="width:100%;" onclick="deleteTemplate('${tpl.id}')">Eliminar plantilla</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      `;
+
+      return `
+        ${renderTopBar('Llistes de compra', 'Organitzades i optimitzades per establiment', false)}
+        <main class="main-content fade-in">
+          ${storeCards}
+          ${templatesHtml}
+        </main>
+      `;
+    }
+
+    function openListDetail(storeId) {
+      pushView({ type: 'listDetail', storeId, addQuery: '' });
+    }
+
+    function renderListDetail(view) {
+      const { storeId, addQuery } = view;
+      const store = STORES[storeId];
+      const rawItems = state.lists[storeId] || [];
+      const optimized = optimizeListItems(storeId, rawItems);
+
+      const total = optimized.length;
+      const foundCount = optimized.filter(i => i.found).length;
+      const pct = total > 0 ? Math.round((foundCount / total) * 100) : 0;
+
+      // Resultats de cerca per afegir productes del catàleg
+      let addResultsHtml = '';
+      if (addQuery && addQuery.trim().length > 0) {
+        const res = smartSearchStore(storeId, addQuery);
+        const catProds = res.categories.flatMap(c => CATALOGS[storeId].filter(p => p.category === c.name));
+        const merged = [];
+        const seenIds = new Set();
+        [...res.products, ...catProds].forEach(p => {
+          if (!seenIds.has(p.id)) { seenIds.add(p.id); merged.push(p); }
+        });
+
+        addResultsHtml = `
+          <div class="card" style="margin-bottom:14px;border:1.5px solid var(--blue-primary);background:var(--blue-pale);">
+            <div style="font-size:12px;font-weight:800;color:var(--blue-dark);margin-bottom:8px;">RESULTATS DEL CATÀLEG (${merged.length})</div>
+            ${merged.length === 0 ? `<div style="font-size:13px;color:var(--text-secondary);">Cap coincidència a ${store.name}.</div>` : merged.slice(0, 8).map(p => {
+              const variants = p.variants?.sizes
+                ? p.variants.sizes.slice(0, 3).map(sz => `${sz}${p.variants.colors ? ' · ' + p.variants.colors[0] : ''}`)
+                : [p.format];
+              const priceText = typeof p.price === 'number' ? `${p.price.toFixed(2).replace('.', ',')} €` : p.price;
+
+              return variants.map(vLabel => `
+                <div style="background:#fff;border-radius:12px;padding:10px;display:flex;align-items:center;gap:10px;margin-bottom:8px;border:1px solid var(--border-soft);">
+                  ${renderProductArt(storeId, p, 44)}
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;font-weight:700;">${p.name}</div>
+                    <div style="font-size:11px;color:var(--text-secondary);">${p.brand} · ${vLabel} · ${priceText}</div>
+                  </div>
+                  <button class="btn btn-primary btn-sm" onclick="addProductToStoreList('${storeId}', '${p.id}', '${vLabel.replace(/'/g, "\\'")}', true)">Afegir</button>
+                </div>
+              `).join('');
+            }).join('')}
+          </div>
+        `;
+      }
+
+      // Agrupació per passadís / zona amb ordre automàtic
+      let lastGroupKey = null;
+      const listHtml = optimized.map((item, idx) => {
+        if (item.unlocatable) {
+          return `
+            <div class="product-row" style="border-color:#FECACA;background:#FEF2F2;">
+              <div style="flex:1;">
+                <div class="product-name">Producte no localitzable</div>
+                <div class="product-meta">Sense ubicació definida al mapa</div>
+              </div>
+              <button class="btn btn-danger-outline btn-sm" onclick="removeListItem('${storeId}', '${item.uid}')">Eliminar</button>
+            </div>
+          `;
+        }
+        const p = item.product;
+        const groupKey = `${p.aisle} — ${p.section.toUpperCase()}`;
+        let groupHeader = '';
+        if (groupKey !== lastGroupKey) {
+          lastGroupKey = groupKey;
+          groupHeader = `<div class="section-label" style="color:var(--blue-dark);margin-top:16px;">${groupKey}</div>`;
+        }
+        const priceText = typeof p.price === 'number' ? `${p.price.toFixed(2).replace('.', ',')} €` : p.price;
+
+        return `
+          ${groupHeader}
+          <div class="product-row" style="opacity:${item.found ? '0.62' : '1'};cursor:default;">
+            <div class="step-num" style="background:${item.found ? 'var(--success)' : 'var(--blue-primary)'};">${item.found ? '✓' : idx + 1}</div>
+            ${renderProductArt(storeId, p, 50)}
+            <div class="product-info">
+              <div class="product-name" style="text-decoration:${item.found ? 'line-through' : 'none'};">${p.name}</div>
+              <div class="product-meta">${p.brand} · ${item.variantLabel || p.format} · ${priceText}</div>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                <span style="font-size:11px;font-weight:700;color:var(--blue-primary);">${p.shelf} · ${p.level}</span>
+                <span class="badge ${item.found ? 'badge-avail' : 'badge-low'}">${item.found ? 'Trobat' : 'Pendent'}</span>
+              </div>
+            </div>
+            <button class="btn-icon" onclick="removeListItem('${storeId}', '${item.uid}')" title="Eliminar de la llista" style="width:32px;height:32px;color:var(--danger);border-color:#FECACA;">
+              ×
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      const hasPending = optimized.some(i => !i.found && !i.unlocatable);
+
+      return `
+        ${renderTopBar(`Llista de ${store.name}`, `${total} productes · Ordre optimitzat automàticament`)}
+        <main class="main-content fade-in">
+          <div class="card" style="margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <span style="font-size:14px;font-weight:800;">Progrés de la compra</span>
+              <span style="font-size:14px;font-weight:800;color:var(--blue-primary);">${foundCount} / ${total} (${pct}%)</span>
+            </div>
+            <div class="progress-track" style="margin-bottom:12px;">
+              <div class="progress-fill" style="width:${pct}%;"></div>
+            </div>
+
+            ${total > 0 ? `
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                ${hasPending ? `
+                  <button class="btn btn-primary" onclick="startListTour('${storeId}')">
+                    ${state.activeTour?.storeId === storeId && state.activeTour?.paused ? 'REPRENDRE RECORREGUT' : 'COMENÇAR RECORREGUT'}
+                  </button>
+                ` : `
+                  <button class="btn btn-success" onclick="pushView({ type: 'listComplete', storeId: '${storeId}' })">
+                    VEURE RESUM DE FINALITZACIÓ
+                  </button>
+                `}
+                <button class="btn btn-light" onclick="pushView({ type: 'fullListMap', storeId: '${storeId}' })">
+                  Veure mapa del recorregut complet
+                </button>
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- Camp per afegir productes -->
+          <div class="search-box">
+            <span class="search-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input id="listAddInput" class="search-input" type="text" placeholder="Quin producte vols afegir?"
+              value="${addQuery || ''}" oninput="updateListAddQuery(this.value)" />
+            ${addQuery ? `<button class="search-clear" onclick="updateListAddQuery('')">×</button>` : ''}
+          </div>
+
+          ${addResultsHtml}
+
+          ${total === 0 ? `
+            <div class="empty-state">La teva llista de ${store.name} és buida. Cerca productes o categories a dalt per afegir-los i FINDIT optimitzarà el recorregut automàticament.</div>
+          ` : listHtml}
+        </main>
+      `;
+    }
+
+    function renderFullListMap(view) {
+      const { storeId } = view;
+      const store = STORES[storeId];
+      const optimized = optimizeListItems(storeId, state.lists[storeId] || []).filter(i => !i.unlocatable);
+      const stops = optimized.map((item, idx) => ({
+        zone: item.zone,
+        index: idx + 1,
+        found: item.found,
+        label: item.product.name
+      }));
+
+      return `
+        ${renderTopBar('Mapa del recorregut complet', `${store.name} · ${stops.length} parades optimitzades`)}
+        <main class="main-content fade-in">
+          <div class="map-wrapper" style="margin-bottom:14px;">
+            <div class="map-toolbar">
+              <span style="font-size:12px;font-weight:700;color:var(--blue-dark);">Ruta completa optimitzada</span>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-outline btn-sm" onclick="adjustZoom(-0.2)">−</button>
+                <button class="btn btn-outline btn-sm" onclick="adjustZoom(0.2)">+</button>
+              </div>
+            </div>
+            <div class="map-viewport">
+              ${renderStoreMapSVG(storeId, { multiStops: stops, zoom: state.mapZoom })}
+            </div>
+            <div class="map-legend">
+              <span class="legend-item"><span class="legend-swatch" style="background:#174A91;border-radius:50%;"></span> Entrada</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#246BCE;border-radius:50%;"></span> Pendent</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#16A34A;border-radius:50%;"></span> Trobat</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#246BCE;height:4px;"></span> Ruta completa</span>
+            </div>
+          </div>
+
+          <div class="section-label">Ordre de parades del recorregut</div>
+          ${optimized.map((item, idx) => `
+            <div class="step-item" style="padding:10px 12px;opacity:${item.found ? '0.6' : '1'};">
+              <div class="step-num" style="background:${item.found ? 'var(--success)' : 'var(--blue-primary)'};">${item.found ? '✓' : idx + 1}</div>
+              <div style="flex:1;">
+                <div style="font-size:14px;font-weight:700;">${item.product.name}</div>
+                <div style="font-size:12px;color:var(--text-secondary);">${item.product.aisle} · ${item.product.shelf} · ${item.found ? 'Trobat' : 'Pendent'}</div>
+              </div>
+            </div>
+          `).join('')}
+        </main>
+      `;
+    }
+
+    function startListTour(storeId) {
+      const optimized = optimizeListItems(storeId, state.lists[storeId] || []);
+      const pending = optimized.filter(i => !i.found && !i.unlocatable);
+      if (pending.length === 0) {
+        pushView({ type: 'listComplete', storeId });
+        return;
+      }
+      const resumeUid = (state.activeTour?.storeId === storeId && pending.some(i => i.uid === state.activeTour.currentUid))
+        ? state.activeTour.currentUid
+        : pending[0].uid;
+
+      state.activeTour = { storeId, currentUid: resumeUid, paused: false };
+      saveState();
+      pushView({ type: 'listTour', storeId });
+    }
+
+    function renderListTour(view) {
+      const { storeId } = view;
+      const store = STORES[storeId];
+      const optimized = optimizeListItems(storeId, state.lists[storeId] || []).filter(i => !i.unlocatable);
+      const total = optimized.length;
+      const foundCount = optimized.filter(i => i.found).length;
+      const pct = total > 0 ? Math.round((foundCount / total) * 100) : 0;
+
+      const currentIdx = optimized.findIndex(i => i.uid === state.activeTour?.currentUid && !i.found);
+      const currentItem = currentIdx >= 0 ? optimized[currentIdx] : optimized.find(i => !i.found);
+
+      if (!currentItem) {
+        setTimeout(() => replaceView({ type: 'listComplete', storeId }), 0);
+        return '';
+      }
+
+      const displayPos = optimized.findIndex(i => i.uid === currentItem.uid) + 1;
+      const p = currentItem.product;
+      const priceText = typeof p.price === 'number' ? `${p.price.toFixed(2).replace('.', ',')} €` : p.price;
+      const ctx = { source: 'list', storeId, itemUid: currentItem.uid, productId: p.id };
+
+      return `
+        ${renderTopBar(`Recorregut · ${store.name}`, `Producte ${displayPos} de ${total}`)}
+        <main class="main-content fade-in">
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--blue-dark);margin-bottom:5px;">
+              <span>Producte ${displayPos} de ${total}</span>
+              <span>${foundCount} trobats (${pct}%)</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" style="width:${pct}%;"></div>
+            </div>
+          </div>
+
+          <div class="card" style="text-align:center;">
+            <div style="display:flex;justify-content:center;margin-bottom:12px;">
+              ${renderProductArt(storeId, p, 108)}
+            </div>
+            <h2 style="font-size:20px;font-weight:800;margin-bottom:4px;">${p.name}</h2>
+            <div style="font-size:14px;color:var(--text-secondary);margin-bottom:8px;">
+              ${p.brand} · ${currentItem.variantLabel || p.format}
+            </div>
+            <div style="font-size:22px;font-weight:800;color:var(--blue-primary);">${priceText}</div>
+
+            <div class="location-box" style="text-align:left;">
+              <div class="location-label">Ubicació exacta</div>
+              <div class="location-value">${p.aisle} · ${p.section} · ${p.shelf} · ${p.level}</div>
+            </div>
+
+            <div class="btn-grid-2" style="margin-bottom:10px;">
+              <button class="btn btn-light" onclick='openDirections(${JSON.stringify(ctx)})'>
+                Com arribar-hi
+              </button>
+              <button class="btn btn-dark" onclick='openProductMap(${JSON.stringify(ctx)})'>
+                Veure mapa
+              </button>
+            </div>
+
+            <button class="btn btn-success" style="margin-bottom:10px;" onclick="markTourItemFound('${storeId}', '${currentItem.uid}', false)">
+              ✓ Producte trobat
+            </button>
+
+            <div class="btn-grid-2">
+              <button class="btn btn-outline btn-sm" style="width:100%;" onclick="skipTourItem('${storeId}', '${currentItem.uid}')">
+                Ometre per ara
+              </button>
+              <button class="btn btn-outline btn-sm" style="width:100%;" onclick="pauseTour('${storeId}')">
+                Pausar recorregut
+              </button>
+            </div>
+          </div>
+
+          <button class="btn btn-outline" style="margin-top:12px;" onclick="pushView({ type: 'fullListMap', storeId: '${storeId}' })">
+            Veure mapa del recorregut complet
+          </button>
+        </main>
+      `;
+    }
+
+    function renderListComplete(view) {
+      const { storeId } = view;
+      const store = STORES[storeId];
+      const items = optimizeListItems(storeId, state.lists[storeId] || []);
+      const total = items.length;
+      const found = items.filter(i => i.found).length;
+
+      return `
+        ${renderTopBar('Recorregut completat', store.name, false)}
+        <main class="main-content fade-in">
+          <div class="card" style="text-align:center;padding:24px 16px;">
+            <div style="width:76px;height:76px;border-radius:50%;background:var(--success-bg);color:var(--success);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:34px;font-weight:800;">
+              ✓
+            </div>
+            <div class="badge badge-avail" style="margin-bottom:8px;">100% COMPLETAT</div>
+            <h2 style="font-size:22px;font-weight:800;color:var(--text-primary);margin-bottom:6px;">HAS COMPLETAT LA TEVA LLISTA!</h2>
+            <p style="font-size:14px;color:var(--text-secondary);margin-bottom:16px;">
+              Tots els ${found} de ${total} productes a <strong>${store.name}</strong> s'han trobat correctament.
+            </p>
+
+            <div class="progress-track" style="margin-bottom:18px;">
+              <div class="progress-fill" style="width:100%;background:var(--success);"></div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <button class="btn btn-primary" onclick="saveListAsTemplate('${storeId}')">
+                GUARDAR PER A FUTURES COMPRES
+              </button>
+              <button class="btn btn-danger-outline" onclick="confirmDeleteList('${storeId}')">
+                ELIMINAR LLISTA
+              </button>
+            </div>
+          </div>
+
+          <div class="section-label">Resum dels productes (${total})</div>
+          ${items.map(i => `
+            <div class="step-item" style="padding:10px 12px;align-items:center;">
+              <div class="step-num" style="background:var(--success);width:26px;height:26px;font-size:12px;">✓</div>
+              <div style="flex:1;font-size:13px;font-weight:700;">${i.product ? i.product.name : 'Producte'}</div>
+              <span style="font-size:11px;color:var(--text-secondary);">${i.variantLabel || ''}</span>
+            </div>
+          `).join('')}
+        </main>
+      `;
+    }
+
+    /* =========================================================================
+       9. DEVOLUCIONS
+       ========================================================================= */
+    function renderReturnsHome() {
+      const pending = state.returns.filter(r => r.status === 'pending');
+
+      return `
+        ${renderTopBar('Devolucions', 'Retorna productes a la seva ubicació original', false)}
+        <main class="main-content fade-in">
+          <div class="card" style="background:var(--blue-light);border-color:#BFDBFE;margin-bottom:14px;">
+            <div style="font-size:13px;font-weight:700;color:var(--blue-dark);">
+              Cada producte s'ha de retornar a la seva prestatgeria o expositor original dins de l'establiment.
+            </div>
+          </div>
+
+          <div class="section-label">Productes pendents de retornar (${pending.length})</div>
+          ${pending.length === 0 ? `
+            <div class="empty-state">
+              No tens cap producte pendent de retornar!<br/>
+              Pots marcar qualsevol producte per retornar des de la seva fitxa.
+            </div>
+          ` : pending.map(r => {
+            const store = STORES[r.storeId];
+            const p = CATALOGS[r.storeId].find(x => x.id === r.productId);
+            if (!p) return '';
+            return `
+              <div class="card" style="margin-bottom:12px;">
+                <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+                  ${renderProductArt(r.storeId, p, 58)}
+                  <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap;">
+                      <span class="badge" style="background:${store.color};color:#fff;">${store.name}</span>
+                      <span class="badge badge-low">Pendent de retornar</span>
+                    </div>
+                    <div style="font-size:15px;font-weight:800;">${p.name}</div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
+                      Ubicació original: <strong style="color:var(--blue-dark);">${p.aisle} · ${p.shelf} · ${p.level}</strong>
+                    </div>
+                  </div>
+                </div>
+                <button class="btn btn-primary btn-sm" style="width:100%;" onclick="openProductDetail('${r.storeId}', '${p.id}', 'return', { returnId: '${r.id}' })">
+                  Consultar producte i ubicació
+                </button>
+              </div>
+            `;
+          }).join('')}
+        </main>
+      `;
+    }
+
+    /* =========================================================================
+       10. PERFIL I CONFIGURACIÓ
+       ========================================================================= */
+    function renderProfile() {
+      const store = state.activeStoreId ? STORES[state.activeStoreId] : null;
+      const pendingReturns = state.returns.filter(r => r.status === 'pending').length;
+
+      return `
+        ${renderTopBar('Perfil', 'Informació i preferències de l\'usuari', false)}
+        <main class="main-content fade-in">
+          <div class="card" style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+            <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg, var(--blue-primary), var(--blue-dark));color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;">
+              F
+            </div>
+            <div>
+              <div style="font-size:17px;font-weight:800;">Usuari FINDIT</div>
+              <div style="font-size:13px;color:var(--text-secondary);">Compte local · Dades sincronitzades</div>
+            </div>
+          </div>
+
+          <div class="btn-grid-2" style="margin-bottom:14px;">
+            <div class="card" style="text-align:center;">
+              <div style="font-size:24px;font-weight:800;color:var(--blue-primary);">${state.stats.listsCompleted}</div>
+              <div style="font-size:12px;color:var(--text-secondary);font-weight:600;">Llistes completades</div>
+            </div>
+            <div class="card" style="text-align:center;">
+              <div style="font-size:24px;font-weight:800;color:var(--success);">${state.stats.returnsCompleted}</div>
+              <div style="font-size:12px;color:var(--text-secondary);font-weight:600;">Devolucions fetes</div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:14px;">
+            <div style="font-size:14px;font-weight:800;margin-bottom:6px;">Establiment actual</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">
+              ${store ? `Actualment estàs dins de <strong>${store.name}</strong>.` : 'No hi ha cap establiment seleccionat.'}
+            </div>
+            ${store ? `
+              <button class="btn btn-light btn-sm" style="width:100%;" onclick="exitActiveStore()">Sortir de ${store.name}</button>
+            ` : `
+              <button class="btn btn-primary btn-sm" style="width:100%;" onclick="switchTab('inici')">Seleccionar establiment</button>
+            `}
+          </div>
+
+          <div class="card">
+            <div style="font-size:14px;font-weight:800;margin-bottom:6px;">Gestió de dades de demostració</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">
+              Devolucions pendents: ${pendingReturns} · Plantilles guardades: ${state.templates.length}
+            </div>
+            <button class="btn btn-danger-outline btn-sm" style="width:100%;" onclick="resetAllDemoData()">
+              Restablir dades de demostració
+            </button>
+          </div>
+        </main>
+      `;
+    }
+
+    /* =========================================================================
+       11. ACCIONS INTERACTIVES
+       ========================================================================= */
+    function updateCurrentQuery(val) {
+      const v = currentView();
+      v.query = val;
+      saveState();
+      render(true);
+    }
+
+    function updateListAddQuery(val) {
+      const v = currentView();
+      v.addQuery = val;
+      saveState();
+      render(true);
+    }
+
+    function setDetailVariant(key, val) {
+      const v = currentView();
+      v[key] = val;
+      saveState();
+      render();
+    }
+
+    function adjustZoom(delta) {
+      state.mapZoom = Math.min(2.0, Math.max(0.8, +(state.mapZoom + delta).toFixed(1)));
+      render();
+    }
+
+    function addProductToStoreList(storeId, productId, variantLabel, stayInList = false) {
+      const uid = 'li-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+      state.lists[storeId] = state.lists[storeId] || [];
+      state.lists[storeId].push({ uid, productId, variantLabel, found: false });
+
+      if (stayInList) {
+        currentView().addQuery = '';
+        saveState();
+        render();
+      } else {
+        saveState();
+        showToast(`Afegit a la llista de ${STORES[storeId].name}`);
+      }
+    }
+
+    function removeListItem(storeId, uid) {
+      state.lists[storeId] = state.lists[storeId].filter(i => i.uid !== uid);
+      saveState();
+      render();
+    }
+
+    function markTourItemFound(storeId, itemUid, fromSubScreen) {
+      const list = state.lists[storeId] || [];
+      const item = list.find(i => i.uid === itemUid);
+      if (item) item.found = true;
+
+      const optimized = optimizeListItems(storeId, list).filter(i => !i.unlocatable);
+      const nextPending = optimized.find(i => !i.found);
+
+      if (fromSubScreen && state.viewStack.length > 1) {
+        state.viewStack.pop();
+      }
+
+      if (!nextPending) {
+        state.activeTour = null;
+        state.stats.listsCompleted += 1;
+        saveState();
+        replaceView({ type: 'listComplete', storeId });
+      } else {
+        state.activeTour = { storeId, currentUid: nextPending.uid, paused: false };
+        saveState();
+        render();
+      }
+    }
+
+    function skipTourItem(storeId, currentUid) {
+      const optimized = optimizeListItems(storeId, state.lists[storeId] || []).filter(i => !i.unlocatable && !i.found);
+      if (optimized.length <= 1) {
+        showToast('És l\'últim producte pendent!');
+        return;
+      }
+      const idx = optimized.findIndex(i => i.uid === currentUid);
+      const next = optimized[(idx + 1) % optimized.length];
+      state.activeTour = { storeId, currentUid: next.uid, paused: false };
+      saveState();
+      render();
+    }
+
+    function pauseTour(storeId) {
+      if (state.activeTour) state.activeTour.paused = true;
+      saveState();
+      popView();
+    }
+
+    function confirmDeleteList(storeId) {
+      state.modal = {
+        title: 'Eliminar llista',
+        message: 'Vols eliminar aquesta llista? Aquesta acció no es pot desfer.',
+        confirmText: 'Eliminar definitivament',
+        onConfirm: `executeDeleteList('${storeId}')`
+      };
+      render();
+    }
+
+    function executeDeleteList(storeId) {
+      state.lists[storeId] = [];
+      state.activeTour = null;
+      state.modal = null;
+      state.activeTab = 'llistes';
+      state.viewStack = [{ type: 'listsHome' }];
+      saveState();
+      render();
+    }
+
+    function saveListAsTemplate(storeId) {
+      const items = (state.lists[storeId] || []).map(i => ({
+        productId: i.productId,
+        variantLabel: i.variantLabel
+      }));
+      if (items.length === 0) return;
+
+      const store = STORES[storeId];
+      const count = state.templates.filter(t => t.storeId === storeId).length + 1;
+      state.templates.unshift({
+        id: 'tpl-' + Date.now(),
+        storeId,
+        name: `Compra habitual ${store.name} #${count}`,
+        createdAt: Date.now(),
+        items
+      });
+      state.activeTour = null;
+      saveState();
+      state.activeTab = 'llistes';
+      state.viewStack = [{ type: 'listsHome' }];
+      render();
+      showToast('Plantilla guardada per a futures compres!');
+    }
+
+    function startFromTemplate(tplId) {
+      const tpl = state.templates.find(t => t.id === tplId);
+      if (!tpl) return;
+      state.lists[tpl.storeId] = tpl.items.map((it, idx) => ({
+        uid: 'tpl-item-' + Date.now() + '-' + idx,
+        productId: it.productId,
+        variantLabel: it.variantLabel,
+        found: false
+      }));
+      state.activeTour = null;
+      saveState();
+      openListDetail(tpl.storeId);
+    }
+
+    function deleteTemplate(tplId) {
+      state.templates = state.templates.filter(t => t.id !== tplId);
+      saveState();
+      render();
+    }
+
+    function addProductToReturns(storeId, productId, variantLabel) {
+      state.returns.unshift({
+        id: 'ret-' + Date.now(),
+        storeId,
+        productId,
+        variantLabel,
+        status: 'pending'
+      });
+      saveState();
+      showToast('Producte afegit a Devolucions');
+      render();
+    }
+
+    function completeReturnItem(returnId) {
+      state.returns = state.returns.filter(r => r.id !== returnId);
+      state.stats.returnsCompleted += 1;
+      state.activeTab = 'devolucions';
+      state.viewStack = [{ type: 'returnsHome' }];
+      saveState();
+      render();
+      showToast('Producte retornat a la seva ubicació original!');
+    }
+
+    function exitActiveStore() {
+      state.activeStoreId = null;
+      saveState();
+      render();
+    }
+
+    function resetAllDemoData() {
+      localStorage.removeItem(STORAGE_KEY);
+      state = defaultState();
+      saveState();
+      render();
+      showToast('Dades de demostració restablertes');
+    }
+
+    function closeModal() {
+      state.modal = null;
+      render();
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      let el = document.getElementById('findit-toast');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'findit-toast';
+        el.style.cssText = 'position:absolute;bottom:84px;left:50%;transform:translateX(-50%);background:#202A36;color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:600;z-index:60;box-shadow:0 6px 20px rgba(0,0,0,0.2);white-space:nowrap;';
+        document.getElementById('app').appendChild(el);
+      }
+      el.textContent = msg;
+      el.style.display = 'block';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.style.display = 'none'; }, 2400);
+    }
+
+    /* =========================================================================
+       12. MENÚ INFERIOR FIX I RENDER PRINCIPAL
+       ========================================================================= */
+    function renderBottomNav() {
+      const pendingReturns = state.returns.filter(r => r.status === 'pending').length;
+      const tabs = [
+        { id: 'inici', label: 'Inici', icon: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>' },
+        { id: 'cerca', label: 'Cerca', icon: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>' },
+        { id: 'llistes', label: 'Llistes', icon: '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>' },
+        { id: 'devolucions', label: 'Devolucions', badge: pendingReturns, icon: '<polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>' },
+        { id: 'perfil', label: 'Perfil', icon: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>' }
+      ];
+
+      return `
+        <nav class="bottom-nav">
+          ${tabs.map(t => `
+            <button class="nav-item ${state.activeTab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">
+              ${t.badge ? `<span class="nav-badge">${t.badge}</span>` : ''}
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">${t.icon}</svg>
+              <span>${t.label}</span>
+            </button>
+          `).join('')}
+        </nav>
+      `;
+    }
+
+    function render(preserveInputFocus = false) {
+      const activeEl = preserveInputFocus ? document.activeElement : null;
+      const activeId = activeEl ? activeEl.id : null;
+      const selStart = activeEl && typeof activeEl.selectionStart === 'number' ? activeEl.selectionStart : null;
+
+      const v = currentView();
+      let bodyHtml = '';
+      switch (v.type) {
+        case 'home': bodyHtml = renderHome(); break;
+        case 'globalStoreSearch': bodyHtml = renderGlobalStoreSearch(v); break;
+        case 'qrScan': bodyHtml = renderQrScan(); break;
+        case 'detectStore': bodyHtml = renderDetectStore(); break;
+        case 'storeSearch': bodyHtml = renderStoreSearch(v); break;
+        case 'categoryProducts': bodyHtml = renderCategoryProducts(v); break;
+        case 'productDetail': bodyHtml = renderProductDetail(v); break;
+        case 'directions': bodyHtml = renderDirections(v); break;
+        case 'productMap': bodyHtml = renderProductMap(v); break;
+        case 'storeMapOnly': bodyHtml = renderStoreMapOnly(v); break;
+        case 'listsHome': bodyHtml = renderListsHome(); break;
+        case 'listDetail': bodyHtml = renderListDetail(v); break;
+        case 'fullListMap': bodyHtml = renderFullListMap(v); break;
+        case 'listTour': bodyHtml = renderListTour(v); break;
+        case 'listComplete': bodyHtml = renderListComplete(v); break;
+        case 'returnsHome': bodyHtml = renderReturnsHome(); break;
+        case 'profile': bodyHtml = renderProfile(); break;
+        default: bodyHtml = renderHome();
+      }
+
+      const modalHtml = state.modal ? `
+        <div class="modal-backdrop">
+          <div class="modal-box fade-in">
+            <h3 style="font-size:18px;font-weight:800;margin-bottom:8px;">${state.modal.title}</h3>
+            <p style="font-size:14px;color:var(--text-secondary);line-height:1.45;margin-bottom:18px;">${state.modal.message}</p>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <button class="btn btn-danger-outline" onclick="${state.modal.onConfirm}">${state.modal.confirmText}</button>
+              <button class="btn btn-outline" onclick="closeModal()">Cancel·lar</button>
+            </div>
+          </div>
+        </div>
+      ` : '';
+
+      document.getElementById('app').innerHTML = bodyHtml + renderBottomNav() + modalHtml;
+
+      if (preserveInputFocus && activeId) {
+        const nextInput = document.getElementById(activeId);
+        if (nextInput) {
+          nextInput.focus();
+          if (selStart !== null) nextInput.setSelectionRange(selStart, selStart);
+        }
+      }
+    }
+
+    // Arrencada inicial
+    render();
+  </script>
+</body>
+</html>
+
+Què inclou aquesta implementació?
+
+  - Identitat visual exacta: paleta blava corporativa (#246BCE, #174A91,
+    #EAF3FF, #F5F9FF), tipografia Inter, targetes arrodonides, colors
+    diferenciats per categoria i disseny mobile-first amb barra inferior fixa
+    de 5 apartats (Inici, Cerca, Llistes, Devolucions, Perfil).
+  - Pantalla inicial i selecció d'establiment: cerca exclusiva d'establiments,
+    simuladors funcionals d'Escaneig QR i Detecció per GPS, i historial d'Els
+    teus últims establiments en ordre cronològic invers.
+  - 4 establiments amb dades i catàlegs independents: Mercadona, Zara,
+    Biblioteca de Vilanova i Decathlon, amb les seves categories, variants de
+    talla/color i ubicacions exactes.
+  - Cerca intel·ligent: tolera coincidències parcials des de les primeres
+    lletres («Lle», «Iog», «Sab», «Cami»), ignora accents i majúscules, reconeix
+    singulars/plurals i sinònims, i diferencia visualment les categories dels
+    productes.
+  - Mapes 2D i rutes reals sense travessar obstacles: algorisme de camí més curt
+    (BFS sobre graella transitable) per als 4 plànols diferenciats, marcador «TU
+    ETS AQUÍ», zoom interactiu i instruccions pas a pas generades a partir del
+    recorregut real.
+  - Llistes amb optimització automàtica i flux continu: càlcul automàtic de la
+    ruta més eficient pels passadissos (sense botó manual), mapa del recorregut
+    complet amb parades numerades, i flux continu on «PRODUCTE TROBAT» apareix
+    directament dins de Com arribar-hi i Veure mapa i avança automàticament al
+    següent producte. Inclou pantalla de finalització amb opció d'eliminar (amb
+    confirmació) o guardar com a plantilla reutilitzable.
+  - Devolucions: flux complet adaptat fins a la ubicació original de cada
+    producte amb el botó directe «PRODUCTE RETORNAT» dins de les indicacions i
+    el mapa.
